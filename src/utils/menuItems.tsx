@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, Package, FileText, ShoppingCart, DollarSign, CreditCard, TrendingUp } from 'lucide-react';
+import { Home, Package, FileText, ShoppingCart, DollarSign, CreditCard, TrendingUp, Users, Category, Truck, UserCheck, Calculator } from 'lucide-react';
 
 interface MenuItem {
   id: string;
@@ -22,6 +22,36 @@ export const menuItems: MenuItem[] = [
     label: 'Produtos',
     path: '/products',
     icon: <Package />
+  },
+  {
+    id: 'customers',
+    label: 'Clientes',
+    path: '/customers',
+    icon: <Users />
+  },
+  {
+    id: 'categories',
+    label: 'Categorias',
+    path: '/categories',
+    icon: <Category />
+  },
+  {
+    id: 'suppliers',
+    label: 'Fornecedores',
+    path: '/suppliers',
+    icon: <Truck />
+  },
+  {
+    id: 'employees',
+    label: 'Colaboradores',
+    path: '/employees',
+    icon: <UserCheck />
+  },
+  {
+    id: 'cash-register',
+    label: 'Caixa',
+    path: '/cash-register',
+    icon: <Calculator />
   },
   {
     id: 'quotations',
