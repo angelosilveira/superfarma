@@ -41,10 +41,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const active = isActive(item.path);
 
     return (
-      <div key={item.id}>
+      <div key={item.id} className="mb-1">
         <div
           className={cn(
-            'sidebar-item sidebar-item-hover',
+            'sidebar-item sidebar-item-hover px-3 py-2.5 rounded-lg transition-colors duration-200',
             active && 'sidebar-item-active',
             depth > 0 && 'ml-4'
           )}
@@ -55,11 +55,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => toggleExpanded(item.id)}
               className="flex items-center gap-3 w-full text-left"
             >
-              <span className="text-lg">{item.icon}</span>
+              <span className="text-base flex-shrink-0">{item.icon}</span>
               {!isCollapsed && (
                 <>
-                  <span className="text-body flex-1">{item.label}</span>
-                  <span className={cn('transition-transform', isExpanded && 'rotate-90')}>
+                  <span className="text-sm flex-1 font-medium">{item.label}</span>
+                  <span className={cn('transition-transform text-xs', isExpanded && 'rotate-90')}>
                     ▶
                   </span>
                 </>
@@ -67,14 +67,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           ) : (
             <Link to={item.path} className="flex items-center gap-3 w-full">
-              <span className="text-lg">{item.icon}</span>
-              {!isCollapsed && <span className="text-body">{item.label}</span>}
+              <span className="text-base flex-shrink-0">{item.icon}</span>
+              {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
             </Link>
           )}
         </div>
         
         {hasChildren && isExpanded && !isCollapsed && (
-          <div className="space-y-1">
+          <div className="space-y-1 mt-1">
             {item.children!.map(child => renderMenuItem(child, depth + 1))}
           </div>
         )}
@@ -86,23 +86,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div
       className={cn(
         'bg-sidebar text-sidebar-foreground h-full transition-all duration-300 flex flex-col',
-        isCollapsed ? 'w-16' : 'w-64'
+        isCollapsed ? 'w-16' : 'w-72'
       )}
     >
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-primary-foreground font-bold text-lg">S</span>
           </div>
           {!isCollapsed && (
-            <h1 className="text-section font-bold">Superfarma</h1>
+            <h1 className="text-lg font-bold">Superfarma</h1>
           )}
         </div>
       </div>
 
       {/* Menu Items */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-2">
         {menuItems.map(item => renderMenuItem(item))}
       </nav>
 
@@ -111,10 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-4 border-t border-sidebar-border">
           <button
             onClick={onToggle}
-            className="sidebar-item sidebar-item-hover w-full justify-center"
+            className="sidebar-item sidebar-item-hover w-full justify-center px-3 py-2.5 rounded-lg transition-colors duration-200"
           >
-            <span className="text-lg">{isCollapsed ? '▶' : '◀'}</span>
-            {!isCollapsed && <span className="text-body">Minimizar</span>}
+            <span className="text-base">{isCollapsed ? '▶' : '◀'}</span>
+            {!isCollapsed && <span className="text-sm font-medium ml-3">Minimizar</span>}
           </button>
         </div>
       )}
