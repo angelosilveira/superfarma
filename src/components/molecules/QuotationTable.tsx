@@ -39,6 +39,7 @@ interface QuotationTableProps {
 }
 
 interface CotacaoPorProduto {
+  codigo?: string;
   nome: string;
   cotacoes: Cotacao[];
   menorPreco: number;
@@ -76,19 +77,30 @@ export function QuotationTable({
     });
   };
 
-  // Agrupar cotações por produto
+  // Agrupar cotações por produto usando o código ou nome como fallback
   const cotacoesPorProduto = cotacoes.reduce(
     (acc: Record<string, CotacaoPorProduto>, cotacao) => {
-      if (!acc[cotacao.nome]) {
-        acc[cotacao.nome] = {
+      // Usar código do produto como chave se disponível, caso contrário usar nome normalizado
+      const chave = cotacao.codigo || normalizarNomeProduto(cotacao.nome);
+
+      if (!acc[chave]) {
+        acc[chave] = {
+          codigo: cotacao.codigo,
           nome: cotacao.nome,
           cotacoes: [],
           menorPreco: Infinity,
         };
       }
-      acc[cotacao.nome].cotacoes.push(cotacao);
-      acc[cotacao.nome].menorPreco = Math.min(
-        acc[cotacao.nome].menorPreco,
+
+      // Se já existe uma cotação com este código mas com nome diferente,
+      // podemos manter o nome mais curto ou o primeiro encontrado
+      if (acc[chave].nome.length > cotacao.nome.length) {
+        acc[chave].nome = cotacao.nome;
+      }
+
+      acc[chave].cotacoes.push(cotacao);
+      acc[chave].menorPreco = Math.min(
+        acc[chave].menorPreco,
         cotacao.preco_unitario
       );
       return acc;
@@ -96,18 +108,51 @@ export function QuotationTable({
     {}
   );
 
+  // Função para normalizar nomes de produtos (remover espaços extras, converter para minúsculas)
+  function normalizarNomeProduto(nome: string): string {
+    return nome
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/[^\w\s]/g, ""); // Remove caracteres especiais
+  }
+
   // Agrupar cotações por representante (apenas menores preços)
   const cotacoesPorRepresentante = cotacoes.reduce(
     (acc: Record<string, CotacaoPorRepresentante>, cotacao) => {
-      if (!acc[cotacao.representante || ""]) {
-        acc[cotacao.representante || ""] = {
-          representante: cotacao.representante || "",
+      // Ignore entries without a representante
+      if (!cotacao.representante) return acc;
+
+      if (!acc[cotacao.representante]) {
+        acc[cotacao.representante] = {
+          representante: cotacao.representante,
           cotacoes: [],
         };
       }
-      const grupo = cotacoesPorProduto[cotacao.nome];
+
+      // Find the correct product group using codigo if available, otherwise use normalized name
+      const produtoKey = cotacao.codigo || normalizarNomeProduto(cotacao.nome);
+      const grupo = Object.values(cotacoesPorProduto).find(
+        (p) =>
+          (p.codigo && p.codigo === cotacao.codigo) ||
+          (!p.codigo &&
+            normalizarNomeProduto(p.nome) ===
+              normalizarNomeProduto(cotacao.nome))
+      );
+
       if (grupo && cotacao.preco_unitario === grupo.menorPreco) {
-        acc[cotacao.representante || ""].cotacoes.push(cotacao);
+        // Only add if it's not already in the list
+        const alreadyAdded = acc[cotacao.representante].cotacoes.some(
+          (c) =>
+            (c.codigo && c.codigo === cotacao.codigo) ||
+            (!c.codigo &&
+              normalizarNomeProduto(c.nome) ===
+                normalizarNomeProduto(cotacao.nome))
+        );
+
+        if (!alreadyAdded) {
+          acc[cotacao.representante].cotacoes.push(cotacao);
+        }
       }
       return acc;
     },
@@ -174,12 +219,20 @@ export function QuotationTable({
           ) : (
             <div className="space-y-6">
               {Object.values(cotacoesPorProduto).map(
-                ({ nome, cotacoes: produtoCotacoes, menorPreco }) => (
-                  <div key={nome} className="rounded-md border">
-                    <div className="bg-gray-50 p-3">
-                      <h3 className="text-lg font-semibold">
-                        {nome} ({produtoCotacoes.length} cotações)
+                ({ nome, codigo, cotacoes: produtoCotacoes, menorPreco }) => (
+                  <div key={codigo || nome} className="rounded-md border">
+                    <div className="bg-gray-50 p-3 flex justify-between items-center">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        {nome}{" "}
+                        <span className="text-sm text-gray-500">
+                          ({produtoCotacoes.length} cotações)
+                        </span>
                       </h3>
+                      {codigo && (
+                        <span className="text-sm text-gray-500">
+                          Código: {codigo}
+                        </span>
+                      )}
                     </div>
                     <Table>
                       <TableHeader>
@@ -237,7 +290,13 @@ export function QuotationTable({
                                 {formatCurrency(cotacao.preco_total)}
                               </TableCell>
                               <TableCell className="text-right">
-                                {isMenorPreco ? "-" : `${diferenca}% mais caro`}
+                                {isMenorPreco ? (
+                                  "-"
+                                ) : (
+                                  <span className="text-red-600">
+                                    {diferenca}% mais caro
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell>
                                 {formatDate(cotacao.data_atualizacao)}

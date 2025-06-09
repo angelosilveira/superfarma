@@ -3,18 +3,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Check, ChevronsUpDown, Calculator } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { Calculator } from "lucide-react";
 import { Product } from "@/interfaces/product.interface";
-import { Supplier } from "@/interfaces/supplier.interface";
 import { Quotation } from "@/interfaces/quotation.interface";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface QuotationFormProps {
   onSubmit: (quotation: Partial<Quotation>) => void;
@@ -23,42 +28,89 @@ interface QuotationFormProps {
 
 export function QuotationForm({ onSubmit, initialData }: QuotationFormProps) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [representatives, setRepresentatives] = useState<
+    { id: string; nome: string }[]
+  >([]);
+  const [open, setOpen] = useState(false);
+  const [representativeOpen, setRepresentativeOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Quotation>>({
-    price: 0,
-    quantity: 1,
-    status: "pending",
-    valid_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0],
+    preco_unitario: 0,
+    quantidade: 1,
+    data_atualizacao: new Date().toISOString(),
   });
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [query, setQuery] = useState("");
+  const [repQuery, setRepQuery] = useState("");
 
   useEffect(() => {
     if (initialData) {
       setFormData({ ...initialData });
+      if (initialData.produto_id) {
+        const product = products.find((p) => p.id === initialData.produto_id);
+        if (product) setSelectedProduct(product);
+      }
     }
-  }, [initialData]);
+  }, [initialData, products]);
 
   useEffect(() => {
     fetchProducts();
-    fetchSuppliers();
+    fetchRepresentatives();
   }, []);
 
   async function fetchProducts() {
-    const { data } = await supabase.from("products").select("*").order("name");
+    const { data } = await supabase.from("produtos").select("*").order("nome");
     if (data) setProducts(data);
   }
 
-  async function fetchSuppliers() {
-    const { data } = await supabase.from("suppliers").select("*").order("name");
-    if (data) setSuppliers(data);
+  async function fetchRepresentatives() {
+    const { data } = await supabase
+      .from("representantes")
+      .select("id, nome")
+      .order("nome");
+    if (data) setRepresentatives(data);
   }
 
-  function handleChange(field: keyof Quotation, value: any) {
+  const filteredProducts =
+    query === ""
+      ? products
+      : products.filter(
+          (product) =>
+            product.nome.toLowerCase().includes(query.toLowerCase()) ||
+            (product.codigo || "").toLowerCase().includes(query.toLowerCase())
+        );
+
+  const filteredRepresentatives =
+    repQuery === ""
+      ? representatives
+      : representatives.filter((rep) =>
+          rep.nome.toLowerCase().includes(repQuery.toLowerCase())
+        );
+
+  function handleProductSelect(productId: string) {
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      setFormData((prev) => ({
+        ...prev,
+        produto_id: product.id,
+        nome: product.nome,
+        codigo: product.codigo,
+        categoria: product.categoria,
+        unidade_medida: product.unidade_medida,
+      }));
+    }
+    setOpen(false);
+  }
+
+  function handleChange<T extends keyof Quotation>(
+    field: T,
+    value: Quotation[T]
+  ) {
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
-      if (field === "price" || field === "quantity") {
-        updated.total = (updated.price || 0) * (updated.quantity || 0);
+      if (field === "preco_unitario" || field === "quantidade") {
+        updated.preco_total =
+          (updated.preco_unitario || 0) * (updated.quantidade || 0);
       }
       return updated;
     });
@@ -77,41 +129,108 @@ export function QuotationForm({ onSubmit, initialData }: QuotationFormProps) {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="product">Produto</Label>
-            <Select
-              value={formData.product_id}
-              onValueChange={(value) => handleChange("product_id", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um produto" />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((product) => (
-                  <SelectItem key={product.id} value={product.id}>
-                    {product.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Produto</Label>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="w-full justify-between"
+                >
+                  {selectedProduct
+                    ? selectedProduct.nome
+                    : "Selecione um produto..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Buscar produto por nome ou código..."
+                    value={query}
+                    onValueChange={setQuery}
+                  />
+                  <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                  <CommandGroup className="max-h-[300px] overflow-y-auto">
+                    {filteredProducts.map((product) => (
+                      <CommandItem
+                        key={product.id}
+                        value={product.nome}
+                        onSelect={() => handleProductSelect(product.id)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedProduct?.id === product.id
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {product.nome}
+                        {product.codigo && (
+                          <span className="ml-2 text-sm text-gray-500">
+                            (Cód: {product.codigo})
+                          </span>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="supplier">Fornecedor</Label>
-            <Select
-              value={formData.supplier_id}
-              onValueChange={(value) => handleChange("supplier_id", value)}
+            <Label>Representante</Label>
+            <Popover
+              open={representativeOpen}
+              onOpenChange={setRepresentativeOpen}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione um fornecedor" />
-              </SelectTrigger>
-              <SelectContent>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={representativeOpen}
+                  className="w-full justify-between"
+                >
+                  {formData.representante || "Selecione um representante..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder="Buscar representante..."
+                    value={repQuery}
+                    onValueChange={setRepQuery}
+                  />
+                  <CommandEmpty>Nenhum representante encontrado.</CommandEmpty>
+                  <CommandGroup className="max-h-[300px] overflow-y-auto">
+                    {filteredRepresentatives.map((rep) => (
+                      <CommandItem
+                        key={rep.id}
+                        value={rep.nome}
+                        onSelect={() => {
+                          handleChange("representante", rep.nome);
+                          setRepresentativeOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            formData.representante === rep.nome
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {rep.nome}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -122,9 +241,9 @@ export function QuotationForm({ onSubmit, initialData }: QuotationFormProps) {
                 type="number"
                 step="0.01"
                 min="0"
-                value={formData.price || ""}
+                value={formData.preco_unitario || ""}
                 onChange={(e) =>
-                  handleChange("price", parseFloat(e.target.value))
+                  handleChange("preco_unitario", parseFloat(e.target.value))
                 }
               />
             </div>
@@ -135,32 +254,19 @@ export function QuotationForm({ onSubmit, initialData }: QuotationFormProps) {
                 id="quantity"
                 type="number"
                 min="1"
-                value={formData.quantity || ""}
+                value={formData.quantidade || ""}
                 onChange={(e) =>
-                  handleChange("quantity", parseInt(e.target.value, 10))
+                  handleChange("quantidade", parseInt(e.target.value, 10))
                 }
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="valid_until">Válido Até</Label>
-            <Input
-              id="valid_until"
-              type="date"
-              value={formData.valid_until}
-              onChange={(e) => handleChange("valid_until", e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Observações</Label>
-            <Input
-              id="notes"
-              value={formData.notes || ""}
-              onChange={(e) => handleChange("notes", e.target.value)}
-            />
-          </div>
+          {selectedProduct?.unidade_medida && (
+            <div className="text-sm text-gray-500">
+              Unidade de medida: {selectedProduct.unidade_medida}
+            </div>
+          )}
 
           <div className="flex justify-between items-center">
             <div className="text-lg font-semibold">
@@ -168,7 +274,9 @@ export function QuotationForm({ onSubmit, initialData }: QuotationFormProps) {
               {new Intl.NumberFormat("pt-BR", {
                 style: "currency",
                 currency: "BRL",
-              }).format((formData.price || 0) * (formData.quantity || 0))}
+              }).format(
+                (formData.preco_unitario || 0) * (formData.quantidade || 0)
+              )}
             </div>
             <Button type="submit">
               <Calculator className="mr-2 h-4 w-4" />

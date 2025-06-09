@@ -13,26 +13,43 @@ import {
   FormMessage,
 } from "../ui/form";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "../ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Calculator } from "lucide-react";
+import { Calculator, Check, ChevronsUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { Quotation } from "@/interfaces/quotation.interface";
+import { cn } from "@/lib/utils";
 
 interface Produto {
   id: string;
   nome: string;
+  codigo?: string;
   descricao?: string;
   categoria?: string;
+  unidade_medida?: string;
+}
+
+interface Representante {
+  id: string;
+  nome: string;
 }
 
 const formSchema = z.object({
   nome: z.string().min(1, { message: "Nome do produto é obrigatório" }),
+  codigo: z.string().optional(),
   categoria: z.string().optional(),
   preco_unitario: z
     .number()
@@ -56,6 +73,11 @@ export function QuotationForm({
   initialData,
 }: CotacaoFormProps) {
   const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [representantes, setRepresentantes] = useState<Representante[]>([]);
+  const [open, setOpen] = useState(false);
+  const [openRepresentante, setOpenRepresentante] = useState(false);
+  const [query, setQuery] = useState("");
+  const [repQuery, setRepQuery] = useState("");
   const { toast } = useToast();
 
   const form = useForm<CotacaoFormValues>({
@@ -87,9 +109,27 @@ export function QuotationForm({
     }
   }, [toast]);
 
+  const fetchRepresentantes = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("representantes")
+      .select("id, nome")
+      .order("nome");
+
+    if (error) {
+      toast({
+        title: "Erro ao carregar representantes",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else if (data) {
+      setRepresentantes(data);
+    }
+  }, [toast]);
+
   useEffect(() => {
     fetchProdutos();
-  }, [fetchProdutos]);
+    fetchRepresentantes();
+  }, [fetchProdutos, fetchRepresentantes]);
 
   useEffect(() => {
     if (initialData) {
@@ -124,6 +164,22 @@ export function QuotationForm({
     }
   };
 
+  const filteredProdutos =
+    query === ""
+      ? produtos
+      : produtos.filter(
+          (produto) =>
+            produto.nome.toLowerCase().includes(query.toLowerCase()) ||
+            (produto.codigo || "").toLowerCase().includes(query.toLowerCase())
+        );
+
+  const filteredRepresentantes =
+    repQuery === ""
+      ? representantes
+      : representantes.filter((rep) =>
+          rep.nome.toLowerCase().includes(repQuery.toLowerCase())
+        );
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -133,9 +189,134 @@ export function QuotationForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Nome do Produto</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={open}
+                      className="w-full justify-between"
+                    >
+                      {field.value
+                        ? produtos.find(
+                            (produto) => produto.nome === field.value
+                          )?.nome
+                        : "Selecione um produto..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Buscar produto..."
+                      value={query}
+                      onValueChange={setQuery}
+                    />
+                    <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                    <CommandGroup className="max-h-[300px] overflow-y-auto">
+                      {filteredProdutos.map((produto) => (
+                        <CommandItem
+                          key={produto.id}
+                          value={produto.nome}
+                          onSelect={() => {
+                            form.setValue("nome", produto.nome);
+                            form.setValue("categoria", produto.categoria || "");
+                            form.setValue(
+                              "unidade_medida",
+                              produto.unidade_medida || ""
+                            );
+                            form.setValue("codigo", produto.codigo || "");
+                            setOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              field.value === produto.nome
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          <span>{produto.nome}</span>
+                          {produto.codigo && (
+                            <span className="ml-2 text-sm text-gray-500">
+                              (Cód: {produto.codigo})
+                            </span>
+                          )}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="representante"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Representante</FormLabel>
+              <Popover
+                open={openRepresentante}
+                onOpenChange={setOpenRepresentante}
+              >
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openRepresentante}
+                      className="w-full justify-between"
+                    >
+                      {field.value
+                        ? representantes.find((rep) => rep.nome === field.value)
+                            ?.nome
+                        : "Selecione um representante..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput
+                      placeholder="Buscar representante..."
+                      value={repQuery}
+                      onValueChange={setRepQuery}
+                    />
+                    <CommandEmpty>
+                      Nenhum representante encontrado.
+                    </CommandEmpty>
+                    <CommandGroup className="max-h-[300px] overflow-y-auto">
+                      {filteredRepresentantes.map((rep) => (
+                        <CommandItem
+                          key={rep.id}
+                          value={rep.nome}
+                          onSelect={() => {
+                            form.setValue("representante", rep.nome);
+                            setOpenRepresentante(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              field.value === rep.nome
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {rep.nome}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <FormMessage />
             </FormItem>
           )}
@@ -230,20 +411,6 @@ export function QuotationForm({
                   <SelectItem value="l">Litro</SelectItem>
                 </SelectContent>
               </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="representante"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Representante</FormLabel>
-              <FormControl>
-                <Input {...field} />
-              </FormControl>
               <FormMessage />
             </FormItem>
           )}

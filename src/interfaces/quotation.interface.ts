@@ -36,6 +36,7 @@ export interface QuotationRequest {
 export interface Cotacao {
   id: string;
   produto_id: string | null;
+  codigo?: string; // Código do produto
   nome: string;
   categoria?: string;
   preco_unitario: number;
@@ -50,7 +51,7 @@ export interface Cotacao {
     nome: string;
     descricao?: string;
     categoria?: string;
-  };
+  } | null;
 }
 
 export interface QuotationFilters {

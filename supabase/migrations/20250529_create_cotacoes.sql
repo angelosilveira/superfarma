@@ -1,8 +1,8 @@
 -- Supabase migration para tabela de cotações
 create table if not exists public.cotacoes (
-  id uuid primary key default gen_random_uuid(),
-  produto_id uuid references public.produtos(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),  produto_id uuid references public.produtos(id) on delete cascade,
   nome text not null, -- nome do produto
+  codigo text, -- código do produto
   categoria text,
   preco_unitario numeric(12,2) not null,
   quantidade integer not null default 1,
