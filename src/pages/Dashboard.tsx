@@ -1,57 +1,6 @@
-
 import React from 'react';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
-
-const menuItems = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    path: '/',
-    icon: '📊',
-  },
-  {
-    id: 'products',
-    label: 'Produtos',
-    path: '/products',
-    icon: '💊',
-  },
-  {
-    id: 'quotations',
-    label: 'Cotações',
-    path: '/quotations',
-    icon: '📋',
-  },
-  {
-    id: 'orders',
-    label: 'Pedidos',
-    path: '/orders',
-    icon: '🛒',
-  },
-  {
-    id: 'special-orders',
-    label: 'Encomendas',
-    path: '/special-orders',
-    icon: '📦',
-  },
-  {
-    id: 'customers',
-    label: 'Clientes',
-    path: '/customers',
-    icon: '👥',
-  },
-  {
-    id: 'financial',
-    label: 'Financeiro',
-    path: '/financial',
-    icon: '💰',
-  },
-  {
-    id: 'reports',
-    label: 'Relatórios',
-    path: '/reports',
-    icon: '📈',
-  },
-];
+import { menuItems } from '@/utils/menuItems';
 
 export const Dashboard: React.FC = () => {
   return (

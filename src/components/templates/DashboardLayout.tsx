@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/organisms/Sidebar';
+import { TopNavbar } from '@/components/organisms/TopNavbar';
 
 interface MenuItem {
   id: string;
@@ -33,11 +34,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         onToggle={toggleSidebar}
       />
       
-      <main className="flex-1 overflow-hidden">
-        <div className="h-full overflow-auto p-6">
-          {children}
-        </div>
-      </main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopNavbar />
+        
+        <main className="flex-1 overflow-hidden">
+          <div className="h-full overflow-auto p-6">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

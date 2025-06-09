@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { DataTable } from '@/components/organisms/DataTable';
@@ -9,57 +8,7 @@ import { Button } from '@/components/atoms/Button';
 import { useQuotationStore } from '@/store/quotationStore';
 import { QuotationRequest, Quotation } from '@/interfaces/quotation.interface';
 import { formatCurrency, formatDate } from '@/utils/formatters';
-
-const menuItems = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    path: '/',
-    icon: '📊',
-  },
-  {
-    id: 'products',
-    label: 'Produtos',
-    path: '/products',
-    icon: '💊',
-  },
-  {
-    id: 'quotations',
-    label: 'Cotações',
-    path: '/quotations',
-    icon: '📋',
-  },
-  {
-    id: 'orders',
-    label: 'Pedidos',
-    path: '/orders',
-    icon: '🛒',
-  },
-  {
-    id: 'special-orders',
-    label: 'Encomendas',
-    path: '/special-orders',
-    icon: '📦',
-  },
-  {
-    id: 'customers',
-    label: 'Clientes',
-    path: '/customers',
-    icon: '👥',
-  },
-  {
-    id: 'financial',
-    label: 'Financeiro',
-    path: '/financial',
-    icon: '💰',
-  },
-  {
-    id: 'reports',
-    label: 'Relatórios',
-    path: '/reports',
-    icon: '📈',
-  },
-];
+import { menuItems } from '@/utils/menuItems';
 
 // Mock data
 const mockQuotationRequests: QuotationRequest[] = [
