@@ -1,292 +1,377 @@
-import React, { useState } from 'react';
-import { DashboardLayout } from '@/components/templates/DashboardLayout';
-import { DataTable } from '@/components/organisms/DataTable';
-import { SearchInput } from '@/components/molecules/SearchInput';
-import { StatusBadge } from '@/components/molecules/StatusBadge';
-import { WhatsAppButton } from '@/components/molecules/WhatsAppButton';
-import { Button } from '@/components/atoms/Button';
-import { useQuotationStore } from '@/store/quotationStore';
-import { QuotationRequest, Quotation } from '@/interfaces/quotation.interface';
-import { formatCurrency, formatDate } from '@/utils/formatters';
-import { menuItems } from '@/utils/menuItems';
+import React, { useState, useEffect, useCallback } from "react";
+import { DashboardLayout } from "@/components/templates/DashboardLayout";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  PlusCircle,
+  Home,
+  ShoppingCart,
+  Users,
+  FileText,
+  DollarSign,
+  Settings,
+  Package,
+  Truck,
+  Tag,
+} from "lucide-react";
+import { QuotationForm } from "@/components/molecules/QuotationForm";
+import { QuotationTable } from "@/components/molecules/QuotationTable";
+import { supabase } from "@/lib/supabase";
+import { Quotation } from "@/interfaces/quotation.interface";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
-const mockQuotationRequests: QuotationRequest[] = [
+type QuotationStatus = "pending" | "approved" | "rejected";
+
+const menuItems = [
   {
-    id: '1',
-    productId: 'prod1',
-    productName: 'Dipirona 500mg',
-    quantity: 100,
-    unit: 'cx',
-    specifications: 'Genérico, validade mínima 12 meses',
-    deadlineDate: '2024-01-15',
-    status: 'received',
-    createdAt: '2024-01-10',
-    updatedAt: '2024-01-12',
-    quotations: [
+    id: "dashboard",
+    label: "Dashboard",
+    path: "/dashboard",
+    icon: <Home className="h-4 w-4" />,
+  },
+  {
+    id: "products",
+    label: "Produtos",
+    path: "/products",
+    icon: <Package className="h-4 w-4" />,
+  },
+  {
+    id: "categories",
+    label: "Categorias",
+    path: "/categories",
+    icon: <Tag className="h-4 w-4" />,
+  },
+  {
+    id: "suppliers",
+    label: "Fornecedores",
+    path: "/suppliers",
+    icon: <Truck className="h-4 w-4" />,
+  },
+  {
+    id: "customers",
+    label: "Clientes",
+    path: "/customers",
+    icon: <Users className="h-4 w-4" />,
+  },
+  {
+    id: "orders",
+    label: "Vendas",
+    path: "/orders",
+    icon: <ShoppingCart className="h-4 w-4" />,
+  },
+  {
+    id: "quotations",
+    label: "Cotações",
+    path: "/quotations",
+    icon: <FileText className="h-4 w-4" />,
+  },
+  {
+    id: "financial",
+    label: "Financeiro",
+    path: "/financial",
+    icon: <DollarSign className="h-4 w-4" />,
+    children: [
       {
-        id: 'q1',
-        quotationRequestId: '1',
-        supplierId: 's1',
-        supplierName: 'Farmácia Distribuidora ABC',
-        unitPrice: 12.50,
-        totalPrice: 1250.00,
-        deliveryDays: 5,
-        paymentTerms: '30 dias',
-        isWinner: true,
-        status: 'accepted',
-        validUntil: '2024-01-20',
-        createdAt: '2024-01-11',
-        updatedAt: '2024-01-12',
+        id: "accounts-payable",
+        label: "Contas a Pagar",
+        path: "/financial/accounts-payable",
+        icon: <DollarSign className="h-4 w-4" />,
       },
       {
-        id: 'q2',
-        quotationRequestId: '1',
-        supplierId: 's2',
-        supplierName: 'Distribuidora XYZ',
-        unitPrice: 13.00,
-        totalPrice: 1300.00,
-        deliveryDays: 7,
-        paymentTerms: '45 dias',
-        isWinner: false,
-        status: 'pending',
-        validUntil: '2024-01-18',
-        createdAt: '2024-01-11',
-        updatedAt: '2024-01-11',
-      }
-    ]
+        id: "accounts-receivable",
+        label: "Contas a Receber",
+        path: "/financial/accounts-receivable",
+        icon: <DollarSign className="h-4 w-4" />,
+      },
+    ],
   },
   {
-    id: '2',
-    productId: 'prod2',
-    productName: 'Amoxicilina 500mg',
-    quantity: 50,
-    unit: 'cx',
-    deadlineDate: '2024-01-20',
-    status: 'sent',
-    createdAt: '2024-01-08',
-    updatedAt: '2024-01-08',
-    quotations: []
-  }
-];
-
-const mockSuppliers = [
-  {
-    id: 's1',
-    name: 'Farmácia Distribuidora ABC',
-    whatsapp: '11987654321'
+    id: "settings",
+    label: "Configurações",
+    path: "/settings",
+    icon: <Settings className="h-4 w-4" />,
   },
-  {
-    id: 's2',
-    name: 'Distribuidora XYZ',
-    whatsapp: '11876543210'
-  }
 ];
 
 export const Quotations: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedQuotationRequest, setSelectedQuotationRequest] = useState<QuotationRequest | null>(null);
-
-  const quotationRequestColumns = [
-    {
-      key: 'productName',
-      label: 'Produto',
-      sortable: true,
-    },
-    {
-      key: 'quantity',
-      label: 'Quantidade',
-      render: (item: QuotationRequest) => `${item.quantity} ${item.unit}`,
-    },
-    {
-      key: 'deadlineDate',
-      label: 'Prazo',
-      render: (item: QuotationRequest) => formatDate(item.deadlineDate),
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (item: QuotationRequest) => <StatusBadge status={item.status} />,
-    },
-    {
-      key: 'quotations',
-      label: 'Cotações',
-      render: (item: QuotationRequest) => `${item.quotations.length} recebidas`,
-    },
-    {
-      key: 'actions',
-      label: 'Ações',
-      render: (item: QuotationRequest) => (
-        <div className="flex gap-2">
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => setSelectedQuotationRequest(item)}
-          >
-            Ver Detalhes
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
-  const quotationColumns = [
-    {
-      key: 'supplierName',
-      label: 'Fornecedor',
-      sortable: true,
-    },
-    {
-      key: 'unitPrice',
-      label: 'Preço Unitário',
-      render: (item: Quotation) => formatCurrency(item.unitPrice),
-    },
-    {
-      key: 'totalPrice',
-      label: 'Total',
-      render: (item: Quotation) => formatCurrency(item.totalPrice),
-    },
-    {
-      key: 'deliveryDays',
-      label: 'Prazo Entrega',
-      render: (item: Quotation) => `${item.deliveryDays} dias`,
-    },
-    {
-      key: 'paymentTerms',
-      label: 'Pagamento',
-    },
-    {
-      key: 'isWinner',
-      label: 'Status',
-      render: (item: Quotation) => (
-        <div className="flex items-center gap-2">
-          {item.isWinner && <StatusBadge status="winner" statusMap={{ winner: { variant: 'success', label: 'Vencedor' } }} />}
-          <StatusBadge status={item.status} />
-        </div>
-      ),
-    },
-    {
-      key: 'actions',
-      label: 'WhatsApp',
-      render: (item: Quotation) => {
-        const supplier = mockSuppliers.find(s => s.id === item.supplierId);
-        if (!supplier?.whatsapp) return null;
-        
-        const message = `Olá! Gostaria de confirmar a cotação do produto ${selectedQuotationRequest?.productName} - Quantidade: ${selectedQuotationRequest?.quantity} ${selectedQuotationRequest?.unit} - Valor: ${formatCurrency(item.totalPrice)}`;
-        
-        return (
-          <WhatsAppButton
-            phoneNumber={supplier.whatsapp}
-            message={message}
-          />
-        );
-      },
-    },
-  ];
-
-  const filteredQuotationRequests = mockQuotationRequests.filter(item =>
-    item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.specifications?.toLowerCase().includes(searchTerm.toLowerCase())
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(
+    null
   );
+  const { toast } = useToast();
+
+  const fetchQuotations = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("quotations")
+        .select(
+          `
+          *,
+          supplier:suppliers(*),
+          product:products(*)
+        `
+        )
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      if (data) setQuotations(data);
+    } catch (error) {
+      if (error instanceof Error) {
+        toast({
+          title: "Erro ao carregar cotações",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchQuotations();
+  }, [fetchQuotations]);
+
+  const handleSubmit = async (quotation: Partial<Quotation>) => {
+    try {
+      if (editingQuotation) {
+        const { error } = await supabase
+          .from("quotations")
+          .update({
+            ...quotation,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingQuotation.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Cotação atualizada",
+          description: "A cotação foi atualizada com sucesso.",
+        });
+      } else {
+        const { error } = await supabase.from("quotations").insert({
+          ...quotation,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Cotação criada",
+          description: "A cotação foi criada com sucesso.",
+        });
+      }
+
+      setIsDialogOpen(false);
+      setEditingQuotation(null);
+      fetchQuotations();
+    } catch (error) {
+      if (error instanceof Error) {
+        toast({
+          title: "Erro ao salvar cotação",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from("quotations").delete().eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Cotação excluída",
+        description: "A cotação foi excluída com sucesso.",
+      });
+
+      fetchQuotations();
+    } catch (error) {
+      if (error instanceof Error) {
+        toast({
+          title: "Erro ao excluir cotação",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleStatusChange = async (
+    id: string,
+    status: "approved" | "rejected"
+  ) => {
+    try {
+      const { error } = await supabase
+        .from("quotations")
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Status atualizado",
+        description: `A cotação foi ${
+          status === "approved" ? "aprovada" : "rejeitada"
+        } com sucesso.`,
+      });
+
+      fetchQuotations();
+    } catch (error) {
+      if (error instanceof Error) {
+        toast({
+          title: "Erro ao atualizar status",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleEdit = (quotation: Quotation) => {
+    setEditingQuotation(quotation);
+    setIsDialogOpen(true);
+  };
+
+  const filteredQuotations = (status?: QuotationStatus) => {
+    return status ? quotations.filter((q) => q.status === status) : quotations;
+  };
 
   return (
     <DashboardLayout menuItems={menuItems}>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-start">
+      <div className="container mx-auto py-6">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-title text-foreground mb-2">Cotações</h1>
-            <p className="text-body text-muted-foreground">
-              Gerencie suas solicitações de cotação e fornecedores
+            <h1 className="text-3xl font-bold tracking-tight">Cotações</h1>
+            <p className="text-muted-foreground">
+              Gerencie as cotações de produtos com fornecedores
             </p>
           </div>
-          <Button variant="primary">
-            Nova Cotação
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Nova Cotação
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingQuotation ? "Editar Cotação" : "Nova Cotação"}
+                </DialogTitle>
+              </DialogHeader>
+              <QuotationForm
+                onSubmit={handleSubmit}
+                initialData={editingQuotation}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
 
-        {!selectedQuotationRequest ? (
-          <>
-            {/* Search and Filters */}
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <SearchInput
-                  value={searchTerm}
-                  onChange={setSearchTerm}
-                  placeholder="Buscar por produto, descrição ou especificações..."
+        <Tabs defaultValue="all" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="all">Todas</TabsTrigger>
+            <TabsTrigger value="pending">Pendentes</TabsTrigger>
+            <TabsTrigger value="approved">Aprovadas</TabsTrigger>
+            <TabsTrigger value="rejected">Rejeitadas</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Todas as Cotações</CardTitle>
+                <CardDescription>
+                  Lista completa de todas as cotações registradas no sistema
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <QuotationTable
+                  quotations={filteredQuotations()}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onStatusChange={handleStatusChange}
                 />
-              </div>
-            </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            {/* Quotation Requests Table */}
-            <div className="bg-card rounded-lg border border-border">
-              <div className="p-6 border-b border-border">
-                <h3 className="text-subtitle font-semibold">Solicitações de Cotação</h3>
-              </div>
-              <DataTable
-                data={filteredQuotationRequests}
-                columns={quotationRequestColumns}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="space-y-6">
-            {/* Back Button */}
-            <Button 
-              variant="outline" 
-              onClick={() => setSelectedQuotationRequest(null)}
-            >
-              ← Voltar às Cotações
-            </Button>
-
-            {/* Quotation Request Details */}
-            <div className="bg-card rounded-lg border border-border p-6">
-              <h3 className="text-subtitle font-semibold mb-4">
-                Detalhes da Cotação - {selectedQuotationRequest.productName}
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div>
-                  <p className="text-label text-muted-foreground">Quantidade</p>
-                  <p className="text-body">{selectedQuotationRequest.quantity} {selectedQuotationRequest.unit}</p>
-                </div>
-                <div>
-                  <p className="text-label text-muted-foreground">Prazo</p>
-                  <p className="text-body">{formatDate(selectedQuotationRequest.deadlineDate)}</p>
-                </div>
-                <div>
-                  <p className="text-label text-muted-foreground">Status</p>
-                  <StatusBadge status={selectedQuotationRequest.status} />
-                </div>
-              </div>
-
-              {selectedQuotationRequest.specifications && (
-                <div className="mb-6">
-                  <p className="text-label text-muted-foreground">Especificações</p>
-                  <p className="text-body">{selectedQuotationRequest.specifications}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Quotations Table */}
-            <div className="bg-card rounded-lg border border-border">
-              <div className="p-6 border-b border-border">
-                <h3 className="text-subtitle font-semibold">Cotações Recebidas</h3>
-              </div>
-              
-              {selectedQuotationRequest.quotations.length > 0 ? (
-                <DataTable
-                  data={selectedQuotationRequest.quotations}
-                  columns={quotationColumns}
+          <TabsContent value="pending" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cotações Pendentes</CardTitle>
+                <CardDescription>
+                  Cotações que ainda aguardam análise e aprovação
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <QuotationTable
+                  quotations={filteredQuotations("pending")}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onStatusChange={handleStatusChange}
                 />
-              ) : (
-                <div className="p-6 text-center text-muted-foreground">
-                  Nenhuma cotação recebida ainda
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="approved" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cotações Aprovadas</CardTitle>
+                <CardDescription>
+                  Cotações que foram aprovadas e estão em processo de compra
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <QuotationTable
+                  quotations={filteredQuotations("approved")}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onStatusChange={handleStatusChange}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="rejected" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cotações Rejeitadas</CardTitle>
+                <CardDescription>
+                  Cotações que foram rejeitadas ou canceladas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <QuotationTable
+                  quotations={filteredQuotations("rejected")}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onStatusChange={handleStatusChange}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
