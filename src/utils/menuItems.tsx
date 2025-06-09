@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Home, Package, FileText, ShoppingCart, DollarSign, CreditCard, TrendingUp, Users, Category, Truck, UserCheck, Calculator } from 'lucide-react';
+import { Home, Package, FileText, ShoppingCart, DollarSign, CreditCard, TrendingUp, Users, Tags, Truck, UserCheck, Calculator } from 'lucide-react';
 
 interface MenuItem {
   id: string;
@@ -33,7 +32,7 @@ export const menuItems: MenuItem[] = [
     id: 'categories',
     label: 'Categorias',
     path: '/categories',
-    icon: <Category />
+    icon: <Tags />
   },
   {
     id: 'suppliers',
