@@ -1,38 +1,107 @@
-
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { DashboardLayout } from '@/components/templates/DashboardLayout';
-import { menuItems } from '@/utils/menuItems';
-import { Button } from '@/components/atoms/Button';
-import { Input } from '@/components/atoms/Input';
-import { Save, ArrowLeft } from 'lucide-react';
-import { EmployeeFormData } from '@/interfaces/employee.interface';
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { DashboardLayout } from "@/components/templates/DashboardLayout";
+import { menuItems } from "@/utils/menuItems";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
+import { Save, ArrowLeft } from "lucide-react";
+import { EmployeeFormData } from "@/interfaces/employee.interface";
+import { EmployeesService } from "@/services/employees.service";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const EmployeeForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState<EmployeeFormData>({
-    name: '',
-    position: '',
-    phone: '',
-    email: '',
-    admissionDate: '',
-    status: 'active',
-    salary: 0
+    nome: "",
+    email: "",
+    telefone: "",
+    cargo: "",
+    data_admissao: new Date().toISOString().split("T")[0],
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Employee data:', formData);
-    navigate('/employees');
+  useEffect(() => {
+    if (id) {
+      loadEmployee();
+    }
+  }, [id]);
+
+  const loadEmployee = async () => {
+    try {
+      setLoading(true);
+      const employee = await EmployeesService.getById(id!);
+      setFormData({
+        nome: employee.nome,
+        email: employee.email,
+        telefone: employee.telefone,
+        cargo: employee.cargo,
+        data_admissao: employee.data_admissao,
+      });
+    } catch (error) {
+      console.error("Error loading employee:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar o colaborador",
+        variant: "destructive",
+      });
+      navigate("/employees");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      if (isEdit) {
+        await EmployeesService.update(id!, formData);
+        toast({
+          description: "Colaborador atualizado com sucesso",
+        });
+      } else {
+        await EmployeesService.create(formData);
+        toast({
+          description: "Colaborador criado com sucesso",
+        });
+      }
+      navigate("/employees");
+    } catch (error) {
+      console.error("Error saving employee:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o colaborador",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargos = [
+    "Farmacêutico",
+    "Atendente",
+    "Caixa",
+    "Gerente",
+    "Administrativo",
+  ];
+
+  const handleInputChange = (field: keyof EmployeeFormData, value: string) => {
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -40,15 +109,21 @@ export const EmployeeForm: React.FC = () => {
     <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate('/employees')}>
+          <Button
+            variant="ghost"
+            icon={ArrowLeft}
+            onClick={() => navigate("/employees")}
+          >
             Voltar
           </Button>
           <div>
             <h1 className="text-title font-light text-gray-900">
-              {isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}
+              {isEdit ? "Editar Colaborador" : "Novo Colaborador"}
             </h1>
             <p className="text-body text-gray-600">
-              {isEdit ? 'Edite as informações do colaborador' : 'Adicione um novo colaborador'}
+              {isEdit
+                ? "Edite as informações do colaborador"
+                : "Adicione um novo colaborador"}
             </p>
           </div>
         </div>
@@ -58,58 +133,69 @@ export const EmployeeForm: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
                 label="Nome *"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                required
-              />
-              <Input
-                label="Cargo *"
-                value={formData.position}
-                onChange={(e) => handleInputChange('position', e.target.value)}
-                required
-              />
-              <Input
-                label="Telefone *"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
+                value={formData.nome}
+                onChange={(e) => handleInputChange("nome", e.target.value)}
                 required
               />
               <Input
                 label="Email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
+                onChange={(e) => handleInputChange("email", e.target.value)}
               />
+              <Input
+                label="Telefone"
+                value={formData.telefone}
+                onChange={(e) => handleInputChange("telefone", e.target.value)}
+              />
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Cargo *
+                </label>
+                <Select
+                  value={formData.cargo}
+                  onValueChange={(value) => handleInputChange("cargo", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione o cargo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {cargos.map((cargo) => (
+                        <SelectItem key={cargo} value={cargo}>
+                          {cargo}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
               <Input
                 label="Data de Admissão *"
                 type="date"
-                value={formData.admissionDate}
-                onChange={(e) => handleInputChange('admissionDate', e.target.value)}
+                value={formData.data_admissao}
+                onChange={(e) =>
+                  handleInputChange("data_admissao", e.target.value)
+                }
                 required
-              />
-              <div className="space-y-1">
-                <label className="block text-label text-foreground">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => handleInputChange('status', e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  <option value="active">Ativo</option>
-                  <option value="inactive">Inativo</option>
-                </select>
-              </div>
-              <Input
-                label="Salário"
-                type="number"
-                step="0.01"
-                value={formData.salary}
-                onChange={(e) => handleInputChange('salary', parseFloat(e.target.value) || 0)}
               />
             </div>
 
-            <div className="flex justify-end">
-              <Button type="submit" icon={Save}>
-                {isEdit ? 'Salvar Alterações' : 'Criar Colaborador'}
+            <div className="flex justify-end gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate("/employees")}
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" icon={Save} disabled={loading}>
+                {loading
+                  ? "Salvando..."
+                  : isEdit
+                  ? "Salvar Alterações"
+                  : "Criar Colaborador"}
               </Button>
             </div>
           </form>
