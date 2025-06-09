@@ -340,12 +340,12 @@ export function QuotationTable({
             </div>
           )}
         </CardContent>
-      </Card>
-
+      </Card>{" "}
       {/* Tabelas de Melhores Preços por Representante */}
       <div className="space-y-6">
-        {Object.entries(cotacoesPorRepresentante).map(
-          ([representante, { cotacoes: repCotacoes }]) => (
+        {Object.entries(cotacoesPorRepresentante)
+          .filter(([_, { cotacoes }]) => cotacoes.length > 0)
+          .map(([representante, { cotacoes: repCotacoes }]) => (
             <Card key={representante}>
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center justify-between">
@@ -489,8 +489,7 @@ export function QuotationTable({
                 )}
               </CardContent>
             </Card>
-          )
-        )}
+          ))}
       </div>
     </div>
   );
