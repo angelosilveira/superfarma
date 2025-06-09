@@ -1,10 +1,8 @@
-
 export interface Category {
   id: string;
-  name: string;
-  description: string;
-  createdAt: string;
-  updatedAt: string;
+  nome: string;
+  descricao?: string;
+  created_at: string;
 }
 
 export interface CategoryFormData {

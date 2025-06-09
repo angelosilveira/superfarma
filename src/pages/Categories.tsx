@@ -1,47 +1,91 @@
-
-import React, { useState } from 'react';
-import { DashboardLayout } from '@/components/templates/DashboardLayout';
-import { menuItems } from '@/utils/menuItems';
-import { Button } from '@/components/atoms/Button';
-import { DataTable } from '@/components/organisms/DataTable';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Category } from '@/interfaces/category.interface';
-
-const mockCategories: Category[] = [
-  {
-    id: '1',
-    name: 'Medicamentos',
-    description: 'Produtos farmacêuticos e medicamentos',
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01'
-  },
-  {
-    id: '2',
-    name: 'Cosméticos',
-    description: 'Produtos de beleza e cuidados pessoais',
-    createdAt: '2024-01-02',
-    updatedAt: '2024-01-02'
-  }
-];
+import React, { useState, useEffect } from "react";
+import { DashboardLayout } from "@/components/templates/DashboardLayout";
+import { menuItems } from "@/utils/menuItems";
+import { Button } from "@/components/atoms/Button";
+import { DataTable } from "@/components/organisms/DataTable";
+import { Plus, Pencil, Trash2, Box } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Category } from "@/interfaces/category.interface";
+import { CategoriesService } from "@/services/categories.service";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Categories: React.FC = () => {
-  const [categories] = useState<Category[]>(mockCategories);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
+    null
+  );
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const data = await CategoriesService.list();
+      setCategories(
+        data.map((cat) => ({
+          id: cat.id,
+          name: cat.nome,
+          description: cat.descricao,
+          createdAt: cat.created_at,
+        }))
+      );
+    } catch (error) {
+      console.error("Error loading categories:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as categorias",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await CategoriesService.delete(id);
+      setCategories((prev) => prev.filter((cat) => cat.id !== id));
+      setCategoryToDelete(null);
+      toast({
+        description: "Categoria excluída com sucesso",
+      });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a categoria",
+        variant: "destructive",
+      });
+    }
+  };
 
   const columns = [
     {
-      key: 'name',
-      label: 'Nome',
-      sortable: true
+      key: "name",
+      label: "Nome",
+      sortable: true,
     },
     {
-      key: 'description',
-      label: 'Descrição',
-      sortable: true
+      key: "description",
+      label: "Descrição",
+      sortable: true,
     },
     {
-      key: 'actions',
-      label: 'Ações',
+      key: "actions",
+      label: "Ações",
       render: (category: Category) => (
         <div className="flex gap-2">
           <Link to={`/categories/edit/${category.id}`}>
@@ -49,12 +93,17 @@ export const Categories: React.FC = () => {
               Editar
             </Button>
           </Link>
-          <Button variant="ghost" size="sm" icon={Trash2}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={Trash2}
+            onClick={() => setCategoryToDelete(category)}
+          >
             Excluir
           </Button>
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   return (
@@ -63,22 +112,63 @@ export const Categories: React.FC = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-title font-light text-gray-900">Categorias</h1>
-            <p className="text-body text-gray-600">Gerencie as categorias de produtos</p>
+            <p className="text-body text-gray-600">
+              Gerencie as categorias de produtos
+            </p>
           </div>
           <Link to="/categories/new">
-            <Button icon={Plus}>
-              Nova Categoria
-            </Button>
+            <Button icon={Plus}>Nova Categoria</Button>
           </Link>
         </div>
-        
         <div className="bg-white rounded-lg shadow">
-          <DataTable
-            data={categories}
-            columns={columns}
-          />
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin h-8 w-8 mx-auto border-4 border-primary border-t-transparent rounded-full" />
+              <p className="mt-4 text-gray-600">Carregando categorias...</p>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="p-8 text-center text-gray-600">
+              <div className="mx-auto h-12 w-12 text-gray-400">
+                <Box className="h-full w-full" />
+              </div>
+              <p className="mt-4">Nenhuma categoria cadastrada</p>
+              <Link to="/categories/new" className="mt-4 inline-block">
+                <Button variant="link" icon={Plus}>
+                  Criar primeira categoria
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <DataTable data={categories} columns={columns} />
+          )}
         </div>
       </div>
+
+      <AlertDialog
+        open={!!categoryToDelete}
+        onOpenChange={() => setCategoryToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente a
+              categoria "{categoryToDelete?.nome}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                categoryToDelete && handleDelete(categoryToDelete.id)
+              }
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };
