@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Table,
   TableBody,
@@ -9,63 +9,38 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Check, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
-import type { QuotationRequest } from "@/interfaces/quotation.interface";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Edit, Copy, Trash2, ShoppingCart, MessageCircle } from "lucide-react";
+import { Cotacao } from "@/interfaces/quotation.interface";
+import { cn } from "@/lib/utils";
 
 interface QuotationTableProps {
-  quotations: QuotationRequest[];
-  onEdit: (quotation: QuotationRequest) => void;
+  cotacoes: Cotacao[];
+  onEdit: (cotacao: Cotacao) => void;
   onDelete: (id: string) => void;
-  onStatusChange: (id: string, status: "approved" | "rejected") => void;
+  onDuplicate: (cotacao: Cotacao) => void;
+}
+
+interface CotacaoPorProduto {
+  nome: string;
+  cotacoes: Cotacao[];
+  menorPreco: number;
+}
+
+interface CotacaoPorRepresentante {
+  representante: string;
+  cotacoes: Cotacao[];
 }
 
 export function QuotationTable({
-  quotations,
+  cotacoes,
   onEdit,
   onDelete,
-  onStatusChange,
+  onDuplicate,
 }: QuotationTableProps) {
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    fetchQuotations();
-  }, []);
-
-  const fetchQuotations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("quotation_requests")
-        .select(
-          `
-          *,
-          quotations (
-            *,
-            supplier:suppliers (
-              name,
-              email,
-              phone
-            )
-          )
-        `
-        )
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      setQuotations(data || []);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro ao carregar cotações",
-        description: "Não foi possível carregar a lista de cotações.",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [selectedProducts, setSelectedProducts] = useState<
+    Record<string, Set<string>>
+  >({});
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -75,132 +50,321 @@ export function QuotationTable({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("pt-BR");
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
-  const getStatusBadge = (status: QuotationRequest["status"]) => {
-    const styles = {
-      pending: "bg-yellow-100 text-yellow-800",
-      approved: "bg-green-100 text-green-800",
-      rejected: "bg-red-100 text-red-800",
-    };
+  // Agrupar cotações por produto
+  const cotacoesPorProduto = cotacoes.reduce(
+    (acc: Record<string, CotacaoPorProduto>, cotacao) => {
+      if (!acc[cotacao.nome]) {
+        acc[cotacao.nome] = {
+          nome: cotacao.nome,
+          cotacoes: [],
+          menorPreco: Infinity,
+        };
+      }
+      acc[cotacao.nome].cotacoes.push(cotacao);
+      acc[cotacao.nome].menorPreco = Math.min(
+        acc[cotacao.nome].menorPreco,
+        cotacao.preco_unitario
+      );
+      return acc;
+    },
+    {}
+  );
 
-    const labels = {
-      pending: "Pendente",
-      approved: "Aprovada",
-      rejected: "Rejeitada",
-    };
+  // Agrupar cotações por representante (apenas menores preços)
+  const cotacoesPorRepresentante = cotacoes.reduce(
+    (acc: Record<string, CotacaoPorRepresentante>, cotacao) => {
+      if (!acc[cotacao.representante || ""]) {
+        acc[cotacao.representante || ""] = {
+          representante: cotacao.representante || "",
+          cotacoes: [],
+        };
+      }
+      const grupo = cotacoesPorProduto[cotacao.nome];
+      if (grupo && cotacao.preco_unitario === grupo.menorPreco) {
+        acc[cotacao.representante || ""].cotacoes.push(cotacao);
+      }
+      return acc;
+    },
+    {}
+  );
 
-    return <Badge className={styles[status]}>{labels[status]}</Badge>;
+  const handleToggleProduct = (representante: string, productId: string) => {
+    setSelectedProducts((prev) => {
+      const current = new Set(prev[representante] || []);
+      if (current.has(productId)) {
+        current.delete(productId);
+      } else {
+        current.add(productId);
+      }
+      return { ...prev, [representante]: current };
+    });
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("quotation_requests")
-        .delete()
-        .eq("id", id);
+  const handleWhatsappClick = (
+    representante: string,
+    cotacoesSelecionadas: Cotacao[]
+  ) => {
+    // Format selected products for WhatsApp message
+    const dataFormatada = new Date().toLocaleDateString("pt-BR");
+    const mensagem =
+      `Olá! Gostaria de fazer um pedido dos seguintes produtos com base nas cotações (${dataFormatada}):\n\n` +
+      cotacoesSelecionadas
+        .map(
+          (c) =>
+            `- ${c.nome}\n` +
+            `  Quantidade: ${c.quantidade} ${c.unidade_medida || "un"}\n` +
+            `  Preço acordado: ${formatCurrency(c.preco_unitario)}\n` +
+            `  Total: ${formatCurrency(c.preco_total)}`
+        )
+        .join("\n\n") +
+      `\n\nValor total do pedido: ${formatCurrency(
+        cotacoesSelecionadas.reduce((total, c) => total + c.preco_total, 0)
+      )}` +
+      "\n\nPor favor, confirmar faturamento e disponibilidade dos produtos. Obrigado!";
 
-      if (error) throw error;
-
-      setQuotations(quotations.filter((q) => q.id !== id));
-      toast({
-        title: "Cotação excluída",
-        description: "A cotação foi removida com sucesso.",
-      });
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Erro ao excluir",
-        description: "Não foi possível excluir a cotação.",
-      });
-    }
+    // TODO: Replace with actual WhatsApp number from supplier data
+    window.open(
+      `https://wa.me/5500000000000?text=${encodeURIComponent(mensagem)}`,
+      "_blank"
+    );
   };
-
-  if (loading) {
-    return <div>Carregando...</div>;
-  }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Produto</TableHead>
-            <TableHead>Fornecedor</TableHead>
-            <TableHead className="text-right">Preço Unit.</TableHead>
-            <TableHead className="text-right">Qtd.</TableHead>
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead>Válido Até</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {quotations.map((quotation) => (
-            <TableRow key={quotation.id}>
-              <TableCell>{quotation.product?.name}</TableCell>
-              <TableCell>{quotation.supplier?.name}</TableCell>
-              <TableCell className="text-right">
-                {formatCurrency(quotation.price)}
-              </TableCell>
-              <TableCell className="text-right">{quotation.quantity}</TableCell>
-              <TableCell className="text-right">
-                {formatCurrency(quotation.total)}
-              </TableCell>
-              <TableCell>{formatDate(quotation.valid_until)}</TableCell>
-              <TableCell>{getStatusBadge(quotation.status)}</TableCell>
-              <TableCell>
-                <div className="flex justify-end gap-2">
-                  {quotation.status === "pending" && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onStatusChange(quotation.id, "approved")}
-                        title="Aprovar cotação"
-                      >
-                        <Check className="h-4 w-4 text-green-600" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onStatusChange(quotation.id, "rejected")}
-                        title="Rejeitar cotação"
-                      >
-                        <X className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onEdit(quotation)}
-                    title="Editar cotação"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDelete(quotation.id)}
-                    title="Excluir cotação"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-          {quotations.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={8} className="text-center py-4">
-                Nenhuma cotação encontrada
-              </TableCell>
-            </TableRow>
+    <div className="space-y-8">
+      {/* Tabela principal de todos os produtos */}
+      <Card>
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg">
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5" />
+            Cotações por Produto ({cotacoes.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {cotacoes.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p>Nenhuma cotação cadastrada.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {Object.values(cotacoesPorProduto).map(
+                ({ nome, cotacoes: produtoCotacoes, menorPreco }) => (
+                  <div key={nome} className="rounded-md border">
+                    <div className="bg-gray-50 p-3">
+                      <h3 className="text-lg font-semibold">
+                        {nome} ({produtoCotacoes.length} cotações)
+                      </h3>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Produto</TableHead>
+                          <TableHead>Representante</TableHead>
+                          <TableHead className="text-right">
+                            Preço Unit.
+                          </TableHead>
+                          <TableHead className="text-right">Qtd</TableHead>
+                          <TableHead>Unidade</TableHead>
+                          <TableHead className="text-right">
+                            Preço Total
+                          </TableHead>
+                          <TableHead className="text-right">
+                            Diferença
+                          </TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {produtoCotacoes.map((cotacao) => {
+                          const isMenorPreco =
+                            cotacao.preco_unitario === menorPreco;
+                          const diferenca = (
+                            ((cotacao.preco_unitario - menorPreco) /
+                              menorPreco) *
+                            100
+                          ).toFixed(1);
+
+                          return (
+                            <TableRow
+                              key={cotacao.id}
+                              className={cn(
+                                "hover:bg-gray-50",
+                                isMenorPreco && "bg-green-50"
+                              )}
+                            >
+                              <TableCell className="flex items-center gap-2">
+                                {isMenorPreco && (
+                                  <Badge className="bg-green-600">
+                                    Menor Preço
+                                  </Badge>
+                                )}
+                                {cotacao.nome}
+                              </TableCell>
+                              <TableCell>{cotacao.representante}</TableCell>
+                              <TableCell className="text-right font-medium text-green-600">
+                                {formatCurrency(cotacao.preco_unitario)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {cotacao.quantidade}
+                              </TableCell>
+                              <TableCell>
+                                {cotacao.unidade_medida || "un"}
+                              </TableCell>
+                              <TableCell className="text-right font-medium text-green-600">
+                                {formatCurrency(cotacao.preco_total)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {isMenorPreco ? "-" : `${diferenca}% mais caro`}
+                              </TableCell>
+                              <TableCell>
+                                {formatDate(cotacao.data_atualizacao)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onEdit(cotacao)}
+                                    title="Editar cotação"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onDuplicate(cotacao)}
+                                    title="Duplicar cotação"
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onDelete(cotacao.id)}
+                                    title="Excluir cotação"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
+              )}
+            </div>
           )}
-        </TableBody>
-      </Table>
+        </CardContent>
+      </Card>
+
+      {/* Seções por Representante */}
+      <div className="space-y-6">
+        {Object.values(cotacoesPorRepresentante).map(
+          ({ representante, cotacoes: repCotacoes }) => (
+            <Card key={representante}>
+              <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="h-5 w-5" />
+                    {representante} - Melhores Preços ({repCotacoes.length})
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-white hover:text-white hover:bg-green-600 border-white"
+                    onClick={() =>
+                      handleWhatsappClick(representante, repCotacoes)
+                    }
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Enviar WhatsApp
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produto</TableHead>
+                      <TableHead className="text-right">Preço Unit.</TableHead>
+                      <TableHead className="text-right">Qtd</TableHead>
+                      <TableHead>Unidade</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {repCotacoes.map((cotacao) => (
+                      <TableRow key={cotacao.id} className="hover:bg-gray-50">
+                        <TableCell className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts[representante]?.has(
+                              cotacao.id
+                            )}
+                            onChange={() =>
+                              handleToggleProduct(representante, cotacao.id)
+                            }
+                            className="rounded border-gray-300"
+                          />
+                          {cotacao.nome}
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-green-600">
+                          {formatCurrency(cotacao.preco_unitario)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {cotacao.quantidade}
+                        </TableCell>
+                        <TableCell>{cotacao.unidade_medida || "un"}</TableCell>
+                        <TableCell className="text-right font-medium text-green-600">
+                          {formatCurrency(cotacao.preco_total)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(cotacao.data_atualizacao)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onDuplicate(cotacao)}
+                              title="Duplicar cotação"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onDelete(cotacao.id)}
+                              title="Excluir cotação"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )
+        )}
+      </div>
     </div>
   );
 }

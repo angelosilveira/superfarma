@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/templates/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -31,16 +24,14 @@ import {
 import { QuotationForm } from "@/components/molecules/QuotationForm";
 import { QuotationTable } from "@/components/molecules/QuotationTable";
 import { supabase } from "@/lib/supabase";
-import { Quotation } from "@/interfaces/quotation.interface";
+import { Cotacao } from "@/interfaces/quotation.interface";
 import { useToast } from "@/hooks/use-toast";
-
-type QuotationStatus = "pending" | "approved" | "rejected";
 
 const menuItems = [
   {
     id: "dashboard",
     label: "Dashboard",
-    path: "/dashboard",
+    path: "/",
     icon: <Home className="h-4 w-4" />,
   },
   {
@@ -68,36 +59,16 @@ const menuItems = [
     icon: <Users className="h-4 w-4" />,
   },
   {
-    id: "orders",
-    label: "Vendas",
-    path: "/orders",
-    icon: <ShoppingCart className="h-4 w-4" />,
-  },
-  {
     id: "quotations",
     label: "Cotações",
     path: "/quotations",
     icon: <FileText className="h-4 w-4" />,
   },
   {
-    id: "financial",
+    id: "finances",
     label: "Financeiro",
-    path: "/financial",
+    path: "/finances",
     icon: <DollarSign className="h-4 w-4" />,
-    children: [
-      {
-        id: "accounts-payable",
-        label: "Contas a Pagar",
-        path: "/financial/accounts-payable",
-        icon: <DollarSign className="h-4 w-4" />,
-      },
-      {
-        id: "accounts-receivable",
-        label: "Contas a Receber",
-        path: "/financial/accounts-receivable",
-        icon: <DollarSign className="h-4 w-4" />,
-      },
-    ],
   },
   {
     id: "settings",
@@ -109,27 +80,24 @@ const menuItems = [
 
 export const Quotations: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(
-    null
-  );
+  const [cotacoes, setCotacoes] = useState<Cotacao[]>([]);
+  const [editingCotacao, setEditingCotacao] = useState<Cotacao | null>(null);
   const { toast } = useToast();
 
-  const fetchQuotations = useCallback(async () => {
+  const fetchCotacoes = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("quotations")
+        .from("cotacoes")
         .select(
           `
           *,
-          supplier:suppliers(*),
-          product:products(*)
+          produto:produtos(*)
         `
         )
-        .order("created_at", { ascending: false });
+        .order("data_atualizacao", { ascending: false });
 
       if (error) throw error;
-      if (data) setQuotations(data);
+      if (data) setCotacoes(data);
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -142,19 +110,19 @@ export const Quotations: React.FC = () => {
   }, [toast]);
 
   useEffect(() => {
-    fetchQuotations();
-  }, [fetchQuotations]);
+    fetchCotacoes();
+  }, [fetchCotacoes]);
 
-  const handleSubmit = async (quotation: Partial<Quotation>) => {
+  const handleSubmit = async (cotacao: Partial<Cotacao>) => {
     try {
-      if (editingQuotation) {
+      if (editingCotacao) {
         const { error } = await supabase
-          .from("quotations")
+          .from("cotacoes")
           .update({
-            ...quotation,
-            updated_at: new Date().toISOString(),
+            ...cotacao,
+            data_atualizacao: new Date().toISOString(),
           })
-          .eq("id", editingQuotation.id);
+          .eq("id", editingCotacao.id);
 
         if (error) throw error;
 
@@ -163,10 +131,10 @@ export const Quotations: React.FC = () => {
           description: "A cotação foi atualizada com sucesso.",
         });
       } else {
-        const { error } = await supabase.from("quotations").insert({
-          ...quotation,
+        const { error } = await supabase.from("cotacoes").insert({
+          ...cotacao,
+          data_atualizacao: new Date().toISOString(),
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         });
 
         if (error) throw error;
@@ -178,8 +146,8 @@ export const Quotations: React.FC = () => {
       }
 
       setIsDialogOpen(false);
-      setEditingQuotation(null);
-      fetchQuotations();
+      setEditingCotacao(null);
+      fetchCotacoes();
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -193,7 +161,7 @@ export const Quotations: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase.from("quotations").delete().eq("id", id);
+      const { error } = await supabase.from("cotacoes").delete().eq("id", id);
 
       if (error) throw error;
 
@@ -202,7 +170,7 @@ export const Quotations: React.FC = () => {
         description: "A cotação foi excluída com sucesso.",
       });
 
-      fetchQuotations();
+      fetchCotacoes();
     } catch (error) {
       if (error instanceof Error) {
         toast({
@@ -214,33 +182,32 @@ export const Quotations: React.FC = () => {
     }
   };
 
-  const handleStatusChange = async (
-    id: string,
-    status: "approved" | "rejected"
-  ) => {
+  const handleEdit = (cotacao: Cotacao) => {
+    setEditingCotacao(cotacao);
+    setIsDialogOpen(true);
+  };
+
+  const handleDuplicate = async (cotacao: Cotacao) => {
+    const { id, created_at, ...cotacaoToCreate } = cotacao;
     try {
-      const { error } = await supabase
-        .from("quotations")
-        .update({
-          status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
+      const { error } = await supabase.from("cotacoes").insert({
+        ...cotacaoToCreate,
+        data_atualizacao: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      });
 
       if (error) throw error;
 
       toast({
-        title: "Status atualizado",
-        description: `A cotação foi ${
-          status === "approved" ? "aprovada" : "rejeitada"
-        } com sucesso.`,
+        title: "Cotação duplicada",
+        description: "A cotação foi duplicada com sucesso.",
       });
 
-      fetchQuotations();
+      fetchCotacoes();
     } catch (error) {
       if (error instanceof Error) {
         toast({
-          title: "Erro ao atualizar status",
+          title: "Erro ao duplicar cotação",
           description: error.message,
           variant: "destructive",
         });
@@ -248,130 +215,50 @@ export const Quotations: React.FC = () => {
     }
   };
 
-  const handleEdit = (quotation: Quotation) => {
-    setEditingQuotation(quotation);
-    setIsDialogOpen(true);
-  };
-
-  const filteredQuotations = (status?: QuotationStatus) => {
-    return status ? quotations.filter((q) => q.status === status) : quotations;
-  };
-
   return (
     <DashboardLayout menuItems={menuItems}>
-      <div className="container mx-auto py-6">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Cotações</h1>
-            <p className="text-muted-foreground">
-              Gerencie as cotações de produtos com fornecedores
-            </p>
+      <div className="w-full mx-auto py-6">
+        <div className="bg-gradient-to-r from-blue-600 to-green-600 -mx-6 px-6 py-4 mb-6">
+          <div className="flex justify-between items-center text-white">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-6 w-6" />
+              <h1 className="text-2xl font-bold">
+                Cotações por Produto ({cotacoes.length})
+              </h1>
+            </div>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="bg-white text-blue-600 hover:bg-blue-50"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Nova Cotação
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingCotacao ? "Editar Cotação" : "Nova Cotação"}
+                  </DialogTitle>
+                </DialogHeader>
+                <QuotationForm
+                  onSubmit={handleSubmit}
+                  initialData={editingCotacao}
+                />
+              </DialogContent>
+            </Dialog>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Nova Cotação
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingQuotation ? "Editar Cotação" : "Nova Cotação"}
-                </DialogTitle>
-              </DialogHeader>
-              <QuotationForm
-                onSubmit={handleSubmit}
-                initialData={editingQuotation}
-              />
-            </DialogContent>
-          </Dialog>
         </div>
 
-        <Tabs defaultValue="all" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="all">Todas</TabsTrigger>
-            <TabsTrigger value="pending">Pendentes</TabsTrigger>
-            <TabsTrigger value="approved">Aprovadas</TabsTrigger>
-            <TabsTrigger value="rejected">Rejeitadas</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Todas as Cotações</CardTitle>
-                <CardDescription>
-                  Lista completa de todas as cotações registradas no sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <QuotationTable
-                  quotations={filteredQuotations()}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onStatusChange={handleStatusChange}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="pending" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cotações Pendentes</CardTitle>
-                <CardDescription>
-                  Cotações que ainda aguardam análise e aprovação
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <QuotationTable
-                  quotations={filteredQuotations("pending")}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onStatusChange={handleStatusChange}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="approved" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cotações Aprovadas</CardTitle>
-                <CardDescription>
-                  Cotações que foram aprovadas e estão em processo de compra
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <QuotationTable
-                  quotations={filteredQuotations("approved")}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onStatusChange={handleStatusChange}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="rejected" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cotações Rejeitadas</CardTitle>
-                <CardDescription>
-                  Cotações que foram rejeitadas ou canceladas
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <QuotationTable
-                  quotations={filteredQuotations("rejected")}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onStatusChange={handleStatusChange}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        <div className="space-y-6">
+          <QuotationTable
+            cotacoes={cotacoes}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onDuplicate={handleDuplicate}
+          />
+        </div>
       </div>
     </DashboardLayout>
   );
