@@ -9,8 +9,25 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Edit, Copy, Trash2, ShoppingCart, MessageCircle } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  Edit,
+  Copy,
+  Trash2,
+  ShoppingCart,
+  MessageCircle,
+  Calendar,
+  Package2,
+  CircleDollarSign,
+  Hash,
+  Box,
+} from "lucide-react";
 import { Cotacao } from "@/interfaces/quotation.interface";
 import { cn } from "@/lib/utils";
 
@@ -142,7 +159,7 @@ export function QuotationTable({
     <div className="space-y-8">
       {/* Tabela principal de todos os produtos */}
       <Card>
-        <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg">
+        <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
             Cotações por Produto ({cotacoes.length})
@@ -167,7 +184,7 @@ export function QuotationTable({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Produto</TableHead>
+                          <TableHead>Status</TableHead>
                           <TableHead>Representante</TableHead>
                           <TableHead className="text-right">
                             Preço Unit.
@@ -197,21 +214,17 @@ export function QuotationTable({
                           return (
                             <TableRow
                               key={cotacao.id}
-                              className={cn(
-                                "hover:bg-gray-50",
-                                isMenorPreco && "bg-green-50"
-                              )}
+                              className="hover:bg-gray-50"
                             >
-                              <TableCell className="flex items-center gap-2">
-                                {isMenorPreco && (
-                                  <Badge className="bg-green-600">
-                                    Menor Preço
-                                  </Badge>
+                              <TableCell>
+                                {isMenorPreco ? (
+                                  <Badge variant="secondary">Menor Preço</Badge>
+                                ) : (
+                                  "-"
                                 )}
-                                {cotacao.nome}
                               </TableCell>
                               <TableCell>{cotacao.representante}</TableCell>
-                              <TableCell className="text-right font-medium text-green-600">
+                              <TableCell className="text-right font-medium">
                                 {formatCurrency(cotacao.preco_unitario)}
                               </TableCell>
                               <TableCell className="text-right">
@@ -220,7 +233,7 @@ export function QuotationTable({
                               <TableCell>
                                 {cotacao.unidade_medida || "un"}
                               </TableCell>
-                              <TableCell className="text-right font-medium text-green-600">
+                              <TableCell className="text-right font-medium">
                                 {formatCurrency(cotacao.preco_total)}
                               </TableCell>
                               <TableCell className="text-right">
@@ -270,27 +283,35 @@ export function QuotationTable({
         </CardContent>
       </Card>
 
-      {/* Seções por Representante */}
+      {/* Tabelas de Melhores Preços por Representante */}
       <div className="space-y-6">
-        {Object.values(cotacoesPorRepresentante).map(
-          ({ representante, cotacoes: repCotacoes }) => (
+        {Object.entries(cotacoesPorRepresentante).map(
+          ([representante, { cotacoes: repCotacoes }]) => (
             <Card key={representante}>
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg">
+              <CardHeader className="border-b">
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ShoppingCart className="h-5 w-5" />
-                    {representante} - Melhores Preços ({repCotacoes.length})
+                    {representante} ({repCotacoes.length} produtos)
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="text-white hover:text-white hover:bg-green-600 border-white"
                     onClick={() =>
-                      handleWhatsappClick(representante, repCotacoes)
+                      handleWhatsappClick(
+                        representante,
+                        repCotacoes.filter((c) =>
+                          selectedProducts[representante]?.has(c.id)
+                        )
+                      )
+                    }
+                    disabled={
+                      !selectedProducts[representante] ||
+                      selectedProducts[representante].size === 0
                     }
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
-                    Enviar WhatsApp
+                    Enviar Pedido
                   </Button>
                 </CardTitle>
               </CardHeader>
@@ -298,7 +319,36 @@ export function QuotationTable({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Produto</TableHead>
+                      <TableHead>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={
+                              selectedProducts[representante]?.size ===
+                              repCotacoes.length
+                            }
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const newSet = new Set(
+                                  repCotacoes.map((c) => c.id)
+                                );
+                                setSelectedProducts((prev) => ({
+                                  ...prev,
+                                  [representante]: newSet,
+                                }));
+                              } else {
+                                setSelectedProducts((prev) => {
+                                  const newState = { ...prev };
+                                  delete newState[representante];
+                                  return newState;
+                                });
+                              }
+                            }}
+                          />
+                          Produto
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right">Preço Unit.</TableHead>
                       <TableHead className="text-right">Qtd</TableHead>
                       <TableHead>Unidade</TableHead>
@@ -310,27 +360,29 @@ export function QuotationTable({
                   <TableBody>
                     {repCotacoes.map((cotacao) => (
                       <TableRow key={cotacao.id} className="hover:bg-gray-50">
-                        <TableCell className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedProducts[representante]?.has(
-                              cotacao.id
-                            )}
-                            onChange={() =>
-                              handleToggleProduct(representante, cotacao.id)
-                            }
-                            className="rounded border-gray-300"
-                          />
-                          {cotacao.nome}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedProducts[representante]?.has(
+                                cotacao.id
+                              )}
+                              onChange={() =>
+                                handleToggleProduct(representante, cotacao.id)
+                              }
+                              className="rounded border-gray-300"
+                            />
+                            {cotacao.nome}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-right font-medium text-green-600">
+                        <TableCell className="text-right font-medium">
                           {formatCurrency(cotacao.preco_unitario)}
                         </TableCell>
                         <TableCell className="text-right">
                           {cotacao.quantidade}
                         </TableCell>
                         <TableCell>{cotacao.unidade_medida || "un"}</TableCell>
-                        <TableCell className="text-right font-medium text-green-600">
+                        <TableCell className="text-right font-medium">
                           {formatCurrency(cotacao.preco_total)}
                         </TableCell>
                         <TableCell>
@@ -360,6 +412,22 @@ export function QuotationTable({
                     ))}
                   </TableBody>
                 </Table>
+                {repCotacoes.length > 0 && (
+                  <div className="p-4 border-t">
+                    <div className="text-sm text-right">
+                      Total selecionado:{" "}
+                      <span className="font-medium">
+                        {formatCurrency(
+                          repCotacoes
+                            .filter((c) =>
+                              selectedProducts[representante]?.has(c.id)
+                            )
+                            .reduce((acc, c) => acc + c.preco_total, 0)
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )

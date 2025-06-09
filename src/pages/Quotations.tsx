@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components/templates/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -217,21 +217,18 @@ export const Quotations: React.FC = () => {
 
   return (
     <DashboardLayout menuItems={menuItems}>
-      <div className="w-full mx-auto py-6">
-        <div className="bg-gradient-to-r from-blue-600 to-green-600 -mx-6 px-6 py-4 mb-6">
-          <div className="flex justify-between items-center text-white">
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-6 w-6" />
-              <h1 className="text-2xl font-bold">
-                Cotações por Produto ({cotacoes.length})
-              </h1>
+      <div className="w-full mx-auto py-6 space-y-6">
+        <div>
+          <div className="flex justify-between items-center border-b pb-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Cotações</h1>
+              <p className="text-sm text-muted-foreground mt-2">
+                Gerencie as cotações de produtos e preços dos fornecedores
+              </p>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="bg-white text-blue-600 hover:bg-blue-50"
-                >
+                <Button>
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Nova Cotação
                 </Button>
@@ -251,7 +248,7 @@ export const Quotations: React.FC = () => {
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           <QuotationTable
             cotacoes={cotacoes}
             onEdit={handleEdit}
