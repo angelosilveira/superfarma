@@ -299,7 +299,6 @@ export const OrderForm: React.FC = () => {
                   required
                 />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="block text-sm font-medium">Número</label>
@@ -324,17 +323,15 @@ export const OrderForm: React.FC = () => {
                     placeholder="Apto, Sala, etc."
                   />
                 </div>
-              </div>
-
+              </div>{" "}
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium">Bairro *</label>
+                <label className="block text-sm font-medium">Bairro</label>
                 <Input
                   value={formData.neighborhood}
                   onChange={(e) =>
                     handleInputChange("neighborhood", e.target.value)
                   }
                   placeholder="Nome do bairro"
-                  required
                 />
               </div>
             </div>

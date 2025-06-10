@@ -19,25 +19,7 @@ export class OrderService {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-
-    // Fetch customer details for each order
-    const ordersWithCustomers = await Promise.all(
-      orders.map(async (order) => {
-        const { data: customer } = await supabase
-          .from("customers")
-          .select("name, phone")
-          .eq("id", order.customer_id)
-          .single();
-
-        return {
-          ...order,
-          customer_name: customer?.name || "Cliente não encontrado",
-          customer_phone: customer?.phone || "",
-        };
-      })
-    );
-
-    return ordersWithCustomers;
+    return orders;
   }
 
   static async getById(id: string): Promise<Order> {
@@ -54,65 +36,52 @@ export class OrderService {
 
     if (error) throw error;
     if (!order) throw new Error("Pedido não encontrado");
-
-    // Fetch customer details
-    const { data: customer } = await supabase
-      .from("customers")
-      .select("name, phone")
-      .eq("id", order.customer_id)
-      .single();
-
-    return {
-      ...order,
-      customer_name: customer?.name || "Cliente não encontrado",
-      customer_phone: customer?.phone || "",
-    };
+    return order;
   }
 
   static async create(data: CreateOrderData): Promise<Order> {
+    // Primeiro, crie o pedido
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .insert([
-        {
-          customer: data.customer,
-          customer_phone: data.customer_phone,
-          delivery_date: data.delivery_date,
-          street: data.street,
-          number: data.number,
-          complement: data.complement,
-          neighborhood: data.neighborhood,
-          delivery_notes: data.delivery_notes,
-          observations: data.observations,
-          status: OrderStatus.PENDING,
-          payment_status:
-            data.paid_amount > 0
-              ? PaymentStatus.PARTIAL
-              : PaymentStatus.PENDING,
-          paid_amount: data.paid_amount,
-        },
-      ])
+      .insert({
+        customer: data.customer,
+        customer_phone: data.customer_phone,
+        delivery_date: data.delivery_date,
+        street: data.street,
+        number: data.number,
+        complement: data.complement,
+        neighborhood: data.neighborhood,
+        delivery_notes: data.delivery_notes,
+        observations: data.observations,
+        status: OrderStatus.PENDING,
+        payment_status:
+          data.paid_amount > 0 ? PaymentStatus.PARTIAL : PaymentStatus.PENDING,
+        paid_amount: data.paid_amount,
+      })
       .select()
       .single();
 
     if (orderError) throw orderError;
 
-    const orderItems = data.items.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      product_name: item.product_name,
-      category: item.category,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      total: item.quantity * item.unit_price,
-    }));
+    // Depois, crie os itens do pedido
+    if (data.items && data.items.length > 0) {
+      const orderItems = data.items.map((item) => ({
+        order_id: order.id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        category: item.category,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }));
 
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems);
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems);
 
-    if (itemsError) throw itemsError;
+      if (itemsError) throw itemsError;
+    }
 
-    return order;
+    return this.getById(order.id);
   }
 
   static async update(
@@ -120,14 +89,16 @@ export class OrderService {
     data: Partial<CreateOrderData>
   ): Promise<Order> {
     const { items, ...orderData } = data;
+    
+    // Update order first
+    const { error: orderError } = await supabase
+      .from("orders")
+      .update(orderData)
+      .eq("id", id);
+
+    if (orderError) throw orderError;
 
     if (items) {
-      const total_amount = items.reduce(
-        (sum, item) => sum + item.quantity * item.unit_price,
-        0
-      );
-      orderData.total_amount = total_amount;
-
       // Update items
       const { error: deleteError } = await supabase
         .from("order_items")
@@ -139,9 +110,10 @@ export class OrderService {
       const orderItems = items.map((item) => ({
         order_id: id,
         product_id: item.product_id,
+        product_name: item.product_name,
+        category: item.category,
         quantity: item.quantity,
         unit_price: item.unit_price,
-        total: item.quantity * item.unit_price,
       }));
 
       const { error: itemsError } = await supabase
@@ -150,14 +122,6 @@ export class OrderService {
 
       if (itemsError) throw itemsError;
     }
-
-    // Update order
-    const { error: orderError } = await supabase
-      .from("orders")
-      .update(orderData)
-      .eq("id", id);
-
-    if (orderError) throw orderError;
 
     return this.getById(id);
   }
@@ -198,8 +162,7 @@ export class OrderService {
       [OrderStatus.DELIVERED]: "entregue",
       [OrderStatus.CANCELLED]: "cancelado",
     }[order.status];
-
-    let message = `Olá ${order.customer_name}! 👋\n\n`;
+    let message = `Olá ${order.customer}! 👋\n\n`;
     message += `Seu pedido está ${status}.\n`;
 
     if (order.remaining_amount > 0) {
