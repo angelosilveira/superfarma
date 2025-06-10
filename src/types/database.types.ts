@@ -129,6 +129,53 @@ export interface Database {
           updated_at?: string;
         };
       };
+      fechamentos_caixa: {
+        Row: {
+          id: string;
+          responsavel: string;
+          data: string;
+          valor_inicial: number;
+          dinheiro: number;
+          pix: number;
+          cartao_credito: number;
+          cartao_debito: number;
+          total: number;
+          diferenca: number;
+          observacoes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          responsavel: string;
+          data: string;
+          valor_inicial: number;
+          dinheiro: number;
+          pix: number;
+          cartao_credito: number;
+          cartao_debito: number;
+          total?: number;
+          diferenca?: number;
+          observacoes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          responsavel?: string;
+          data?: string;
+          valor_inicial?: number;
+          dinheiro?: number;
+          pix?: number;
+          cartao_credito?: number;
+          cartao_debito?: number;
+          total?: number;
+          diferenca?: number;
+          observacoes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
