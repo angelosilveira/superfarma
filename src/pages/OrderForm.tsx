@@ -5,40 +5,16 @@ import { menuItems } from "@/utils/menuItems";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Check,
-  ChevronsUpDown,
-  Save,
-  ArrowLeft,
-  Plus,
-  Trash2,
-} from "lucide-react";
-import {
-  CreateOrderData,
-  OrderStatus,
-  OrderCategory,
-} from "@/interfaces/order.interface";
+import { CurrencyInput } from "@/components/atoms/CurrencyInput";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { CreateOrderData, OrderCategory } from "@/interfaces/order.interface";
 import { OrderService } from "@/services/order.service";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
-import { cn } from "@/lib/utils";
-
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-}
 
 interface OrderItem {
   product_id: string;
   product_name: string;
+  category: OrderCategory;
   unit_price: number;
   quantity: number;
   total: number;
@@ -51,42 +27,22 @@ export const OrderForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-
   const [formData, setFormData] = useState<Partial<CreateOrderData>>({
     customer: "",
     customer_phone: "",
-    category: OrderCategory.MEDICAMENTO,
-    order_cost: 0,
-    paid_amount: 0,
     delivery_date: new Date().toISOString().split("T")[0],
     street: "",
     number: "",
     complement: "",
     neighborhood: "",
-    city: "",
-    state: "",
     delivery_notes: "",
     observations: "",
+    paid_amount: 0,
     items: [],
   });
 
   const [items, setItems] = useState<OrderItem[]>([]);
   const [total, setTotal] = useState(0);
-
-  const [openCustomer, setOpenCustomer] = useState(false);
-  const [openProduct, setOpenProduct] = useState<number[]>([]);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [productSearch, setProductSearch] = useState("");
-
-  const filteredCustomers = customers.filter((customer) =>
-    customer.name.toLowerCase().includes(customerSearch.toLowerCase())
-  );
-
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(productSearch.toLowerCase())
-  );
 
   const loadOrder = useCallback(async () => {
     if (!id) return;
@@ -98,23 +54,20 @@ export const OrderForm: React.FC = () => {
       setFormData({
         customer: order.customer,
         customer_phone: order.customer_phone,
-        category: order.category,
-        order_cost: order.order_cost,
-        paid_amount: order.paid_amount,
         delivery_date: order.delivery_date,
         street: order.street,
         number: order.number,
         complement: order.complement,
         neighborhood: order.neighborhood,
-        city: order.city,
-        state: order.state,
         delivery_notes: order.delivery_notes,
         observations: order.observations,
+        paid_amount: order.paid_amount,
       });
 
       const orderItems = order.items.map((item) => ({
         product_id: item.product_id,
         product_name: item.product_name,
+        category: item.category,
         unit_price: item.unit_price,
         quantity: item.quantity,
         total: item.unit_price * item.quantity,
@@ -134,14 +87,7 @@ export const OrderForm: React.FC = () => {
   }, [id, navigate]);
 
   useEffect(() => {
-    Promise.all([loadOrder()]).catch((error) => {
-      console.error("Error loading data:", error);
-      toast({
-        title: "Erro ao carregar dados",
-        description: "Ocorreu um erro ao carregar os dados necessários.",
-        variant: "destructive",
-      });
-    });
+    loadOrder().catch(console.error);
   }, [loadOrder]);
 
   useEffect(() => {
@@ -155,9 +101,7 @@ export const OrderForm: React.FC = () => {
   ) => {
     setFormData((prev) => ({
       ...prev,
-      [field]: ["paid_amount", "order_cost"].includes(field)
-        ? Number(value) || 0
-        : value,
+      [field]: field === "paid_amount" ? Number(value) || 0 : value,
     }));
   };
 
@@ -167,6 +111,7 @@ export const OrderForm: React.FC = () => {
       {
         product_id: "",
         product_name: "",
+        category: OrderCategory.MEDICAMENTO,
         unit_price: 0,
         quantity: 1,
         total: 0,
@@ -225,21 +170,19 @@ export const OrderForm: React.FC = () => {
       const orderData: CreateOrderData = {
         customer: formData.customer || "",
         customer_phone: formData.customer_phone || "",
-        category: formData.category || OrderCategory.MEDICAMENTO,
-        order_cost: formData.order_cost || 0,
-        paid_amount: formData.paid_amount || 0,
         delivery_date:
           formData.delivery_date || new Date().toISOString().split("T")[0],
         street: formData.street || "",
         number: formData.number || "",
         complement: formData.complement,
         neighborhood: formData.neighborhood || "",
-        city: formData.city || "",
-        state: formData.state || "",
         delivery_notes: formData.delivery_notes,
         observations: formData.observations,
+        paid_amount: formData.paid_amount || 0,
         items: items.map((item) => ({
           product_id: item.product_id,
+          product_name: item.product_name,
+          category: item.category,
           quantity: item.quantity,
           unit_price: item.unit_price,
         })),
@@ -270,13 +213,6 @@ export const OrderForm: React.FC = () => {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
   if (isLoading) {
     return (
       <DashboardLayout menuItems={menuItems}>
@@ -291,11 +227,8 @@ export const OrderForm: React.FC = () => {
     <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            icon={ArrowLeft}
-            onClick={() => navigate("/orders")}
-          >
+          <Button variant="ghost" onClick={() => navigate("/orders")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
           </Button>
           <div>
@@ -310,6 +243,7 @@ export const OrderForm: React.FC = () => {
 
         <div className="bg-white rounded-lg shadow p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Customer Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium">
@@ -341,29 +275,6 @@ export const OrderForm: React.FC = () => {
 
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium">
-                  Categoria do Pedido *
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "category",
-                      e.target.value as OrderCategory
-                    )
-                  }
-                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  required
-                >
-                  {Object.values(OrderCategory).map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium">
                   Data de Entrega *
                 </label>
                 <Input
@@ -375,49 +286,9 @@ export const OrderForm: React.FC = () => {
                   required
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium">
-                  Custo do Pedido (R$)
-                </label>
-                <Input
-                  type="number"
-                  value={formData.order_cost}
-                  onChange={(e) =>
-                    handleInputChange("order_cost", Number(e.target.value))
-                  }
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium">
-                  Valor de Entrada (R$)
-                </label>
-                <Input
-                  type="number"
-                  value={formData.paid_amount}
-                  onChange={(e) =>
-                    handleInputChange("paid_amount", Number(e.target.value))
-                  }
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium">
-                  Valor Restante (R$)
-                </label>
-                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
-                  {formatCurrency(total - (formData.paid_amount || 0))}
-                </div>
-              </div>
             </div>
 
+            {/* Address Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium">Rua *</label>
@@ -466,31 +337,9 @@ export const OrderForm: React.FC = () => {
                   required
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium">Cidade *</label>
-                  <Input
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    placeholder="Nome da cidade"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium">Estado *</label>
-                  <Input
-                    value={formData.state}
-                    onChange={(e) => handleInputChange("state", e.target.value)}
-                    placeholder="UF"
-                    maxLength={2}
-                    required
-                  />
-                </div>
-              </div>
             </div>
 
+            {/* Order Items */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-medium">Itens do Pedido</h2>
@@ -508,59 +357,54 @@ export const OrderForm: React.FC = () => {
                 {items.map((item, index) => (
                   <div
                     key={index}
-                    className="grid grid-cols-12 gap-4 items-start"
+                    className="grid grid-cols-12 gap-4 items-start bg-gray-50 p-4 rounded-lg"
                   >
-                    <div className="col-span-5">
+                    <div className="col-span-3">
                       <div className="space-y-1.5">
                         <label className="block text-sm font-medium">
                           Produto *
                         </label>
-                        <div className="space-y-2">
-                          <Input
-                            value={item.product_name}
-                            onChange={(e) =>
-                              handleItemChange(
-                                index,
-                                "product_name",
-                                e.target.value
-                              )
-                            }
-                            placeholder="Nome do produto"
-                            required
-                          />
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input
-                              type="number"
-                              value={item.unit_price}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "unit_price",
-                                  Number(e.target.value)
-                                )
-                              }
-                              placeholder="Preço unitário"
-                              step="0.01"
-                              min="0"
-                              required
-                            />
-                            <Input
-                              type="text"
-                              value={item.product_id}
-                              onChange={(e) =>
-                                handleItemChange(
-                                  index,
-                                  "product_id",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Código do produto"
-                              required
-                            />
-                          </div>
-                        </div>
+                        <Input
+                          value={item.product_name}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "product_name",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Nome do produto"
+                          required
+                        />
                       </div>
                     </div>
+
+                    <div className="col-span-2">
+                      <div className="space-y-1.5">
+                        <label className="block text-sm font-medium">
+                          Categoria *
+                        </label>
+                        <select
+                          value={item.category}
+                          onChange={(e) =>
+                            handleItemChange(
+                              index,
+                              "category",
+                              e.target.value as OrderCategory
+                            )
+                          }
+                          className="w-full px-3 py-2 bg-background border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          required
+                        >
+                          {Object.values(OrderCategory).map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="col-span-2">
                       <div className="space-y-1.5">
                         <label className="block text-sm font-medium">
@@ -570,29 +414,51 @@ export const OrderForm: React.FC = () => {
                           type="number"
                           value={item.quantity}
                           onChange={(e) =>
-                            handleItemChange(index, "quantity", e.target.value)
+                            handleItemChange(
+                              index,
+                              "quantity",
+                              Number(e.target.value)
+                            )
                           }
                           min="1"
                           required
                         />
                       </div>
                     </div>
+
                     <div className="col-span-2">
                       <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Preço Un.</label>
-                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
-                          {formatCurrency(item.unit_price)}
-                        </div>
+                        <label className="block text-sm font-medium">
+                          Preço Unitário *
+                        </label>
+                        <CurrencyInput
+                          value={item.unit_price}
+                          onChange={(value) =>
+                            handleItemChange(index, "unit_price", value)
+                          }
+                          required
+                          placeholder="R$ 0,00"
+                        />
                       </div>
                     </div>
+
                     <div className="col-span-2">
                       <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Subtotal</label>
-                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
-                          {formatCurrency(item.total)}
-                        </div>
+                        <label className="block text-sm font-medium">
+                          Subtotal
+                        </label>
+                        <CurrencyInput
+                          value={item.total}
+                          onChange={(value) =>
+                            handleItemChange(index, "unit_price", value)
+                          }
+                          required
+                          placeholder="R$ 0,00"
+                          disabled
+                        />
                       </div>
                     </div>
+
                     <div className="col-span-1 pt-7">
                       <button
                         type="button"
@@ -606,58 +472,88 @@ export const OrderForm: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex justify-end text-lg font-medium">
-                <span>Total: {formatCurrency(total)}</span>
+              {/* Order Total and Payment */}
+              <div className="mt-6 space-y-4">
+                <div className="flex justify-end text-lg font-medium">
+                  <span>
+                    Total:{" "}
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(total)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium">
+                      Valor de Entrada
+                    </label>
+                    <CurrencyInput
+                      value={formData.paid_amount || 0}
+                      onChange={(value) =>
+                        handleInputChange("paid_amount", value)
+                      }
+                      placeholder="R$ 0,00"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium">
+                      Valor Restante
+                    </label>
+                    <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                      {new Intl.NumberFormat("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      }).format(total - (formData.paid_amount || 0))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium">
+                  Instruções de Entrega
+                </label>
+                <Textarea
+                  value={formData.delivery_notes}
+                  onChange={(e) =>
+                    handleInputChange("delivery_notes", e.target.value)
+                  }
+                  rows={2}
+                  placeholder="Instruções para entrega do pedido..."
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium">Observações</label>
+                <Textarea
+                  value={formData.observations}
+                  onChange={(e) =>
+                    handleInputChange("observations", e.target.value)
+                  }
+                  rows={4}
+                  placeholder="Observações adicionais sobre o pedido..."
+                />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-medium">Observações</label>
-              <Textarea
-                value={formData.observations}
-                onChange={(e) =>
-                  handleInputChange("observations", e.target.value)
-                }
-                rows={4}
-                placeholder="Observações adicionais sobre o pedido..."
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="block text-sm font-medium">
-                Instruções de Entrega
-              </label>
-              <Textarea
-                value={formData.delivery_notes}
-                onChange={(e) =>
-                  handleInputChange("delivery_notes", e.target.value)
-                }
-                rows={2}
-                placeholder="Instruções para entrega do pedido..."
-              />
-            </div>
-
+            {/* Form Actions */}
             <div className="flex justify-end gap-4">
-              <button
-                type="button"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                onClick={() => navigate("/orders")}
-              >
-                <ArrowLeft className="h-4 w-4" />
+              <Button variant="outline" onClick={() => navigate("/orders")}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
                 Voltar
-              </button>
-              <button
-                type="submit"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
-                disabled={isSaving}
-              >
+              </Button>
+              <Button type="submit" disabled={isSaving}>
                 {isSaving ? (
-                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
                 ) : (
-                  <Save className="h-4 w-4" />
+                  <Save className="h-4 w-4 mr-2" />
                 )}
                 {isEdit ? "Atualizar" : "Salvar"}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

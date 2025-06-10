@@ -13,11 +13,11 @@ export enum PaymentStatus {
 }
 
 export enum OrderCategory {
-  MEDICAMENTO = "MEDICAMENTO",
-  GENERICO = "GENERICO",
-  SIMILAR = "SIMILAR",
-  PERFUMARIA = "PERFUMARIA",
-  OUTROS = "OUTROS",
+  MEDICAMENTO = "Medicamento",
+  GENERICO = "Genérico",
+  SIMILAR = "Similar",
+  PERFUMARIA = "Perfumaria",
+  OUTROS = "Outros",
 }
 
 export interface Customer {
@@ -46,6 +46,7 @@ export interface OrderItem {
   order_id: string;
   product_id: string;
   product_name: string;
+  category: OrderCategory;
   quantity: number;
   unit_price: number;
   total: number;
@@ -57,24 +58,22 @@ export interface Order {
   id: string;
   customer: string;
   customer_phone: string;
-  category: OrderCategory;
-  order_cost: number;
-  paid_amount: number;
-  remaining_amount: number;
   delivery_date: string;
   street: string;
   number: string;
   complement?: string;
   neighborhood: string;
-  city: string;
-  state: string;
   delivery_notes?: string;
   observations?: string;
   status: OrderStatus;
   payment_status: PaymentStatus;
+  paid_amount: number;
+  remaining_amount: number;
   items: OrderItem[];
   created_at: string;
   updated_at: string;
+  user_id: string;
+  created_by: string;
 }
 
 export interface SpecialOrder {
@@ -111,20 +110,18 @@ export interface CreateOrderItem {
 export interface CreateOrderData {
   customer: string;
   customer_phone: string;
-  category: OrderCategory;
-  order_cost: number;
-  paid_amount: number;
   delivery_date: string;
   street: string;
   number: string;
   complement?: string;
   neighborhood: string;
-  city: string;
-  state: string;
   delivery_notes?: string;
   observations?: string;
+  paid_amount: number;
   items: {
     product_id: string;
+    product_name: string;
+    category: OrderCategory;
     quantity: number;
     unit_price: number;
   }[];

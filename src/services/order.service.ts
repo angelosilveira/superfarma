@@ -3,10 +3,11 @@ import {
   CreateOrderData,
   Order,
   OrderStatus,
+  PaymentStatus,
 } from "@/interfaces/order.interface";
 
-export const OrderService = {
-  async getAll(): Promise<Order[]> {
+export class OrderService {
+  static async getAll(): Promise<Order[]> {
     const { data: orders, error } = await supabase
       .from("orders")
       .select(
@@ -37,9 +38,9 @@ export const OrderService = {
     );
 
     return ordersWithCustomers;
-  },
+  }
 
-  async getById(id: string): Promise<Order> {
+  static async getById(id: string): Promise<Order> {
     const { data: order, error } = await supabase
       .from("orders")
       .select(
@@ -66,25 +67,28 @@ export const OrderService = {
       customer_name: customer?.name || "Cliente não encontrado",
       customer_phone: customer?.phone || "",
     };
-  },
+  }
 
-  async create(data: CreateOrderData): Promise<Order> {
-    const { items, ...orderData } = data;
-
-    // Calculate total amount
-    const total_amount = items.reduce(
-      (sum, item) => sum + item.quantity * item.unit_price,
-      0
-    );
-
-    // Start transaction
+  static async create(data: CreateOrderData): Promise<Order> {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert([
         {
-          ...orderData,
-          total_amount,
+          customer: data.customer,
+          customer_phone: data.customer_phone,
+          delivery_date: data.delivery_date,
+          street: data.street,
+          number: data.number,
+          complement: data.complement,
+          neighborhood: data.neighborhood,
+          delivery_notes: data.delivery_notes,
+          observations: data.observations,
           status: OrderStatus.PENDING,
+          payment_status:
+            data.paid_amount > 0
+              ? PaymentStatus.PARTIAL
+              : PaymentStatus.PENDING,
+          paid_amount: data.paid_amount,
         },
       ])
       .select()
@@ -92,10 +96,11 @@ export const OrderService = {
 
     if (orderError) throw orderError;
 
-    // Insert order items
-    const orderItems = items.map((item) => ({
+    const orderItems = data.items.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
+      product_name: item.product_name,
+      category: item.category,
       quantity: item.quantity,
       unit_price: item.unit_price,
       total: item.quantity * item.unit_price,
@@ -107,10 +112,13 @@ export const OrderService = {
 
     if (itemsError) throw itemsError;
 
-    return this.getById(order.id);
-  },
+    return order;
+  }
 
-  async update(id: string, data: Partial<CreateOrderData>): Promise<Order> {
+  static async update(
+    id: string,
+    data: Partial<CreateOrderData>
+  ): Promise<Order> {
     const { items, ...orderData } = data;
 
     if (items) {
@@ -152,9 +160,9 @@ export const OrderService = {
     if (orderError) throw orderError;
 
     return this.getById(id);
-  },
+  }
 
-  async delete(id: string): Promise<void> {
+  static async delete(id: string): Promise<void> {
     // Delete order items first (foreign key constraint)
     const { error: itemsError } = await supabase
       .from("order_items")
@@ -170,9 +178,9 @@ export const OrderService = {
       .eq("id", id);
 
     if (orderError) throw orderError;
-  },
+  }
 
-  async updateStatus(id: string, status: OrderStatus): Promise<Order> {
+  static async updateStatus(id: string, status: OrderStatus): Promise<Order> {
     const { error } = await supabase
       .from("orders")
       .update({ status })
@@ -181,9 +189,9 @@ export const OrderService = {
     if (error) throw error;
 
     return this.getById(id);
-  },
+  }
 
-  formatWhatsAppMessage(order: Order): string {
+  static formatWhatsAppMessage(order: Order): string {
     const status = {
       [OrderStatus.PENDING]: "pendente",
       [OrderStatus.PROCESSING]: "em processamento",
@@ -204,5 +212,5 @@ export const OrderService = {
     }
 
     return encodeURIComponent(message);
-  },
-};
+  }
+}
