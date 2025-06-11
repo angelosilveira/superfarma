@@ -23,48 +23,87 @@ export class OrderService {
   }
 
   static async getById(id: string): Promise<Order> {
-    const { data: order, error } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select(
-        `
-        *,
-        items:order_items(*)
-      `
-      )
+      .select("*")
       .eq("id", id)
       .single();
 
-    if (error) throw error;
-    if (!order) throw new Error("Pedido não encontrado");
-    return order;
+    if (orderError) {
+      throw new Error("Erro ao buscar pedido");
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", id);
+
+    if (itemsError) {
+      throw new Error("Erro ao buscar itens do pedido");
+    }
+
+    return {
+      ...order,
+      items: items || [],
+    } as Order;
   }
 
   static async create(data: CreateOrderData): Promise<Order> {
-    // Primeiro, crie o pedido
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        customer: data.customer,
-        customer_phone: data.customer_phone,
-        delivery_date: data.delivery_date,
-        street: data.street,
-        number: data.number,
-        complement: data.complement,
-        neighborhood: data.neighborhood,
-        delivery_notes: data.delivery_notes,
-        observations: data.observations,
-        status: OrderStatus.PENDING,
-        payment_status:
-          data.paid_amount > 0 ? PaymentStatus.PARTIAL : PaymentStatus.PENDING,
-        paid_amount: data.paid_amount,
-      })
-      .select()
-      .single();
+    console.log("Creating order with data:", data);
 
-    if (orderError) throw orderError;
+    try {
+      // Validate required fields
+      if (!data.customer) {
+        throw new Error("O nome do cliente é obrigatório");
+      }
+      if (!data.delivery_date) {
+        throw new Error("A data de entrega é obrigatória");
+      }
+      if (!data.street) {
+        throw new Error("O endereço é obrigatório");
+      }
+      if (!data.neighborhood) {
+        throw new Error("O bairro é obrigatório");
+      }
+      if (!data.items || data.items.length === 0) {
+        throw new Error("É necessário incluir pelo menos um item no pedido");
+      }
 
-    // Depois, crie os itens do pedido
-    if (data.items && data.items.length > 0) {
+      // Create order
+      const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          customer: data.customer,
+          customer_phone: data.customer_phone,
+          delivery_date: data.delivery_date,
+          street: data.street,
+          number: data.number,
+          complement: data.complement,
+          neighborhood: data.neighborhood,
+          delivery_notes: data.delivery_notes,
+          observations: data.observations,
+          paid_amount: data.paid_amount || 0,
+          status: OrderStatus.PENDING,
+          payment_status:
+            data.paid_amount > 0
+              ? PaymentStatus.PARTIAL
+              : PaymentStatus.PENDING,
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error("Error creating order:", orderError);
+        throw new Error(orderError.message);
+      }
+
+      if (!order) {
+        throw new Error("Erro ao criar pedido");
+      }
+
+      console.log("Created order:", order);
+
+      // Create order items
       const orderItems = data.items.map((item) => ({
         order_id: order.id,
         product_id: item.product_id,
@@ -78,10 +117,19 @@ export class OrderService {
         .from("order_items")
         .insert(orderItems);
 
-      if (itemsError) throw itemsError;
-    }
+      if (itemsError) {
+        console.error("Error creating order items:", itemsError);
+        // Rollback order creation
+        await supabase.from("orders").delete().eq("id", order.id);
+        throw new Error(itemsError.message);
+      }
 
-    return this.getById(order.id);
+      // Return the created order with items
+      return this.getById(order.id);
+    } catch (error) {
+      console.error("Error in OrderService.create:", error);
+      throw error;
+    }
   }
 
   static async update(
@@ -89,7 +137,7 @@ export class OrderService {
     data: Partial<CreateOrderData>
   ): Promise<Order> {
     const { items, ...orderData } = data;
-    
+
     // Update order first
     const { error: orderError } = await supabase
       .from("orders")

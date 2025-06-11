@@ -7,16 +7,21 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/atoms/CurrencyInput";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
-import { CreateOrderData, OrderCategory } from "@/interfaces/order.interface";
+import {
+  CreateOrderData,
+  OrderCategory,
+  OrderStatus,
+  PaymentStatus,
+} from "@/interfaces/order.interface";
 import { OrderService } from "@/services/order.service";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 
-interface OrderItem {
+interface FormOrderItem {
   product_id: string;
   product_name: string;
   category: OrderCategory;
-  unit_price: number;
   quantity: number;
+  unit_price: number;
   total: number;
 }
 
@@ -26,11 +31,10 @@ export const OrderForm: React.FC = () => {
   const isEdit = Boolean(id);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  const [formData, setFormData] = useState<Partial<CreateOrderData>>({
+  const [formData, setFormData] = useState<Omit<CreateOrderData, "items">>({
     customer: "",
     customer_phone: "",
-    delivery_date: new Date().toISOString().split("T")[0],
+    delivery_date: "",
     street: "",
     number: "",
     complement: "",
@@ -38,10 +42,9 @@ export const OrderForm: React.FC = () => {
     delivery_notes: "",
     observations: "",
     paid_amount: 0,
-    items: [],
   });
 
-  const [items, setItems] = useState<OrderItem[]>([]);
+  const [items, setItems] = useState<FormOrderItem[]>([]);
   const [total, setTotal] = useState(0);
 
   const loadOrder = useCallback(async () => {
@@ -94,9 +97,8 @@ export const OrderForm: React.FC = () => {
     const newTotal = items.reduce((sum, item) => sum + item.total, 0);
     setTotal(newTotal);
   }, [items]);
-
   const handleInputChange = (
-    field: keyof CreateOrderData,
+    field: keyof Omit<CreateOrderData, "items">,
     value: string | number
   ) => {
     setFormData((prev) => ({
@@ -104,108 +106,86 @@ export const OrderForm: React.FC = () => {
       [field]: field === "paid_amount" ? Number(value) || 0 : value,
     }));
   };
-
-  const handleAddItem = () => {
-    setItems((prev) => [
-      ...prev,
-      {
-        product_id: "",
-        product_name: "",
-        category: OrderCategory.MEDICAMENTO,
-        unit_price: 0,
-        quantity: 1,
-        total: 0,
-      },
-    ]);
+  // Add item to the form
+  const handleAddItem = (item: FormOrderItem) => {
+    setItems([...items, item]);
   };
 
+  // Remove item from the form
   const handleRemoveItem = (index: number) => {
-    setItems((prev) => prev.filter((_, i) => i !== index));
+    const newItems = items.filter((_, i) => i !== index);
+    setItems(newItems);
   };
-
   const handleItemChange = (
     index: number,
-    field: keyof OrderItem,
+    field: keyof FormOrderItem,
     value: string | number
   ) => {
-    setItems((prev) => {
-      const newItems = [...prev];
-      const item = { ...newItems[index] };
+    const newItems = [...items];
+    const item = { ...newItems[index] };
 
-      if (field === "quantity" || field === "unit_price") {
-        item[field] = Number(value) || 0;
-        item.total = item.quantity * item.unit_price;
-      } else {
-        item[field] = value;
-      }
+    if (field === "category") {
+      item.category = value as OrderCategory;
+    } else if (field === "quantity" || field === "unit_price") {
+      item[field] = Number(value);
+    } else {
+      item[field as "product_id" | "product_name"] = value as string;
+    }
 
-      newItems[index] = item;
-      return newItems;
-    });
+    // Calculate the subtotal for this item
+    item.total = item.quantity * item.unit_price;
+
+    newItems[index] = item;
+    setItems(newItems);
+  };
+
+  const prepareFormData = (): CreateOrderData => {
+    // Remove total field from items as it's not needed in the API
+    const formItems = items.map((item) => ({
+      product_id: item.product_id,
+      product_name: item.product_name,
+      category: item.category,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+    }));
+
+    return {
+      ...formData,
+      items: formItems,
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.customer) {
-      toast({
-        title: "Campo obrigatório",
-        description: "Informe o nome do cliente.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (items.length === 0) {
-      toast({
-        title: "Itens obrigatórios",
-        description: "Adicione pelo menos um item ao pedido.",
-        variant: "destructive",
-      });
-      return;
-    }
+    setIsSaving(true);
 
     try {
-      setIsSaving(true);
-      const orderData: CreateOrderData = {
-        customer: formData.customer || "",
-        customer_phone: formData.customer_phone || "",
-        delivery_date:
-          formData.delivery_date || new Date().toISOString().split("T")[0],
-        street: formData.street || "",
-        number: formData.number || "",
-        complement: formData.complement,
-        neighborhood: formData.neighborhood || "",
-        delivery_notes: formData.delivery_notes,
-        observations: formData.observations,
-        paid_amount: formData.paid_amount || 0,
-        items: items.map((item) => ({
-          product_id: item.product_id,
-          product_name: item.product_name,
-          category: item.category,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-        })),
-      };
-
-      if (isEdit) {
-        await OrderService.update(id!, orderData);
+      if (items.length === 0) {
         toast({
-          title: "Pedido atualizado",
-          description: "O pedido foi atualizado com sucesso.",
+          title: "Erro",
+          description: "É necessário incluir pelo menos um item no pedido",
+          variant: "destructive",
         });
-      } else {
-        await OrderService.create(orderData);
-        toast({
-          title: "Pedido criado",
-          description: "O pedido foi criado com sucesso.",
-        });
+        return;
       }
-      navigate("/orders");
+
+      const orderData = prepareFormData();
+      const result = await OrderService.create(orderData);
+
+      if (result) {
+        toast({
+          title: "Sucesso",
+          description: "Pedido criado com sucesso",
+        });
+        navigate("/orders");
+      }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro ao criar pedido";
+      console.error("Error creating order:", error);
       toast({
-        title: "Erro ao salvar",
-        description: "Não foi possível salvar o pedido.",
+        title: "Erro",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -343,7 +323,18 @@ export const OrderForm: React.FC = () => {
                 <button
                   type="button"
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                  onClick={handleAddItem}
+                  onClick={() => {
+                    const newItem: FormOrderItem = {
+                      product_id: "",
+                      product_name: "",
+                      category: OrderCategory.MEDICAMENTO,
+                      unit_price: 0,
+                      quantity: 1,
+                      total: 0,
+                    };
+                    newItem.total = newItem.quantity * newItem.unit_price;
+                    handleAddItem(newItem);
+                  }}
                 >
                   <Plus className="h-4 w-4" />
                   Adicionar Item
@@ -380,7 +371,7 @@ export const OrderForm: React.FC = () => {
                       <div className="space-y-1.5">
                         <label className="block text-sm font-medium">
                           Categoria *
-                        </label>
+                        </label>{" "}
                         <select
                           value={item.category}
                           onChange={(e) =>
@@ -393,9 +384,10 @@ export const OrderForm: React.FC = () => {
                           className="w-full px-3 py-2 bg-background border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                           required
                         >
-                          {Object.values(OrderCategory).map((category) => (
-                            <option key={category} value={category}>
-                              {category}
+                          <option value="">Selecione uma categoria</option>
+                          {Object.entries(OrderCategory).map(([key, value]) => (
+                            <option key={key} value={value}>
+                              {value}
                             </option>
                           ))}
                         </select>
@@ -443,16 +435,13 @@ export const OrderForm: React.FC = () => {
                       <div className="space-y-1.5">
                         <label className="block text-sm font-medium">
                           Subtotal
-                        </label>
-                        <CurrencyInput
-                          value={item.total}
-                          onChange={(value) =>
-                            handleItemChange(index, "unit_price", value)
-                          }
-                          required
-                          placeholder="R$ 0,00"
-                          disabled
-                        />
+                        </label>{" "}
+                        <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                          {new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          }).format(item.total)}
+                        </div>
                       </div>
                     </div>
 
