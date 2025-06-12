@@ -68,12 +68,10 @@ export const Wishlist: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
   // Form state
   const [newItem, setNewItem] = useState<CreateWishlistItem>({
     product_name: "",
     observations: "",
-    customer_name: "",
     quantity: 1,
     status: WishlistStatus.PENDING,
   });
@@ -110,7 +108,6 @@ export const Wishlist: React.FC = () => {
       setNewItem({
         product_name: "",
         observations: "",
-        customer_name: "",
         quantity: 1,
         status: WishlistStatus.PENDING,
       });
@@ -242,8 +239,8 @@ export const Wishlist: React.FC = () => {
       .map(
         (item) =>
           `${item.product_name} - Quantidade: ${item.quantity}${
-            item.customer_name ? ` (Cliente: ${item.customer_name})` : ""
-          }${item.observations ? `\nObs: ${item.observations}` : ""}\n`
+            item.observations ? `\nObs: ${item.observations}` : ""
+          }\n`
       )
       .join("\n");
 
@@ -279,48 +276,61 @@ export const Wishlist: React.FC = () => {
         </div>
 
         <div className="space-y-4">
+          {" "}
           {/* Add new item form */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Input
-              placeholder="Nome do produto"
-              value={newItem.product_name}
-              onChange={(e) =>
-                setNewItem((prev) => ({
-                  ...prev,
-                  product_name: e.target.value,
-                }))
-              }
-            />
-            <Input
-              placeholder="Nome do cliente"
-              value={newItem.customer_name || ""}
-              onChange={(e) =>
-                setNewItem((prev) => ({
-                  ...prev,
-                  customer_name: e.target.value,
-                }))
-              }
-            />
-            <Input
-              type="number"
-              min="1"
-              placeholder="Quantidade"
-              value={newItem.quantity}
-              onChange={(e) =>
-                setNewItem((prev) => ({
-                  ...prev,
-                  quantity: parseInt(e.target.value) || 1,
-                }))
-              }
-            />
-            <Button onClick={handleAdd} disabled={!newItem.product_name}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label htmlFor="product-name" className="text-sm font-medium">
+                Nome do produto
+              </label>
+              <Input
+                id="product-name"
+                placeholder="Digite o nome do produto"
+                value={newItem.product_name}
+                onChange={(e) =>
+                  setNewItem((prev) => ({
+                    ...prev,
+                    product_name: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="quantity" className="text-sm font-medium">
+                Quantidade
+              </label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                placeholder="Digite a quantidade"
+                value={newItem.quantity}
+                onChange={(e) =>
+                  setNewItem((prev) => ({
+                    ...prev,
+                    quantity: parseInt(e.target.value) || 1,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2 flex items-end">
+              <Button
+                className="w-full"
+                onClick={handleAdd}
+                disabled={!newItem.product_name}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar
+              </Button>
+            </div>
           </div>
-          <div>
+          <div className="space-y-2">
+            <label htmlFor="observations" className="text-sm font-medium">
+              Observações
+            </label>
             <Textarea
-              placeholder="Observações"
+              id="observations"
+              placeholder="Digite as observações (opcional)"
               value={newItem.observations || ""}
               onChange={(e) =>
                 setNewItem((prev) => ({
@@ -329,14 +339,10 @@ export const Wishlist: React.FC = () => {
                 }))
               }
             />
-          </div>
-
-          {/* Table */}
+          </div>{" "}
           <div className="border rounded-lg">
-            {" "}
             <div className="p-4 border-b bg-muted/50">
               <div className="flex items-center justify-between">
-                {" "}
                 <div className="flex items-center gap-4">
                   {selectedItems.size > 0 && (
                     <>
@@ -349,6 +355,9 @@ export const Wishlist: React.FC = () => {
                           <SelectValue placeholder="Alterar status" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
+                            Em Falta
+                          </SelectItem>
                           <SelectItem value={WishlistStatus.PENDING}>
                             Pendente
                           </SelectItem>
@@ -408,6 +417,7 @@ export const Wishlist: React.FC = () => {
               </div>
             </div>
             <Table>
+              {" "}
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
@@ -417,13 +427,12 @@ export const Wishlist: React.FC = () => {
                     />
                   </TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead>Cliente</TableHead>
                   <TableHead>Quantidade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Observações</TableHead>
                   <TableHead className="w-12">Ações</TableHead>
                 </TableRow>
-              </TableHeader>{" "}
+              </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
@@ -434,6 +443,7 @@ export const Wishlist: React.FC = () => {
                 ) : (
                   items.map((item) => (
                     <TableRow key={item.id}>
+                      {" "}
                       <TableCell>
                         <Checkbox
                           checked={selectedItems.has(item.id)}
@@ -441,7 +451,6 @@ export const Wishlist: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell>{item.product_name}</TableCell>
-                      <TableCell>{item.customer_name || "-"}</TableCell>
                       <TableCell>{item.quantity}</TableCell>
                       <TableCell>
                         <Select
@@ -456,6 +465,9 @@ export const Wishlist: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
+                              Em Falta
+                            </SelectItem>{" "}
                             <SelectItem value={WishlistStatus.PENDING}>
                               Pendente
                             </SelectItem>
@@ -539,69 +551,89 @@ export const Wishlist: React.FC = () => {
           </DialogHeader>
           {editingItem && (
             <div className="space-y-4">
-              <Input
-                placeholder="Nome do produto"
-                value={editingItem.product_name}
-                onChange={(e) =>
-                  setEditingItem((prev) =>
-                    prev ? { ...prev, product_name: e.target.value } : null
-                  )
-                }
-              />
-              <Input
-                placeholder="Nome do cliente"
-                value={editingItem.customer_name || ""}
-                onChange={(e) =>
-                  setEditingItem((prev) =>
-                    prev ? { ...prev, customer_name: e.target.value } : null
-                  )
-                }
-              />
-              <Input
-                type="number"
-                min="1"
-                placeholder="Quantidade"
-                value={editingItem.quantity}
-                onChange={(e) =>
-                  setEditingItem((prev) =>
-                    prev
-                      ? { ...prev, quantity: parseInt(e.target.value) || 1 }
-                      : null
-                  )
-                }
-              />
-              <Textarea
-                placeholder="Observações"
-                value={editingItem.observations || ""}
-                onChange={(e) =>
-                  setEditingItem((prev) =>
-                    prev ? { ...prev, observations: e.target.value } : null
-                  )
-                }
-              />
-              <Select
-                value={editingItem.status}
-                onValueChange={(value) =>
-                  setEditingItem((prev) =>
-                    prev ? { ...prev, status: value as WishlistStatus } : null
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={WishlistStatus.PENDING}>
-                    Pendente
-                  </SelectItem>
-                  <SelectItem value={WishlistStatus.ORDERED}>
-                    Pedido Feito
-                  </SelectItem>
-                  <SelectItem value={WishlistStatus.RECEIVED}>
-                    Recebido
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <label
+                  htmlFor="edit-product-name"
+                  className="text-sm font-medium"
+                >
+                  Nome do produto
+                </label>
+                <Input
+                  id="edit-product-name"
+                  placeholder="Digite o nome do produto"
+                  value={editingItem.product_name}
+                  onChange={(e) =>
+                    setEditingItem((prev) =>
+                      prev ? { ...prev, product_name: e.target.value } : null
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-quantity" className="text-sm font-medium">
+                  Quantidade
+                </label>
+                <Input
+                  id="edit-quantity"
+                  type="number"
+                  min="1"
+                  placeholder="Digite a quantidade"
+                  value={editingItem.quantity}
+                  onChange={(e) =>
+                    setEditingItem((prev) =>
+                      prev
+                        ? { ...prev, quantity: parseInt(e.target.value) || 1 }
+                        : null
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="edit-observations"
+                  className="text-sm font-medium"
+                >
+                  Observações
+                </label>
+                <Textarea
+                  id="edit-observations"
+                  placeholder="Digite as observações (opcional)"
+                  value={editingItem.observations || ""}
+                  onChange={(e) =>
+                    setEditingItem((prev) =>
+                      prev ? { ...prev, observations: e.target.value } : null
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-status" className="text-sm font-medium">
+                  Status
+                </label>
+                <Select
+                  value={editingItem.status}
+                  onValueChange={(value) =>
+                    setEditingItem((prev) =>
+                      prev ? { ...prev, status: value as WishlistStatus } : null
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={WishlistStatus.PENDING}>
+                      Pendente
+                    </SelectItem>
+                    <SelectItem value={WishlistStatus.ORDERED}>
+                      Pedido Feito
+                    </SelectItem>
+                    <SelectItem value={WishlistStatus.RECEIVED}>
+                      Recebido
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex justify-end gap-4">
                 <Button
                   variant="outline"
@@ -616,7 +648,6 @@ export const Wishlist: React.FC = () => {
                   onClick={() =>
                     handleUpdate(editingItem.id, {
                       product_name: editingItem.product_name,
-                      customer_name: editingItem.customer_name,
                       quantity: editingItem.quantity,
                       observations: editingItem.observations,
                       status: editingItem.status,
