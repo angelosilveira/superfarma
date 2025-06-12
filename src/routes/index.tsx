@@ -24,8 +24,8 @@ export const AppRoutes: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/wishlist" element={<Wishlist />} />
+        {/* <Route path="/" element={<Dashboard />} /> */}
+        <Route path="/" element={<Wishlist />} />
         <Route path="/quotations" element={<Quotations />} />
         <Route
           path="/financial/accounts-payable"

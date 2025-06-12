@@ -27,7 +27,7 @@ export const menuItems: MenuItem[] = [
   {
     id: "wishlist",
     label: "Lista de Desejos",
-    path: "/wishlist",
+    path: "/",
     icon: <ListChecks />,
   },
   // {
