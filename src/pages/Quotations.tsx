@@ -26,57 +26,7 @@ import { QuotationTable } from "@/components/molecules/QuotationTable";
 import { supabase } from "@/lib/supabase";
 import { Cotacao } from "@/interfaces/quotation.interface";
 import { useToast } from "@/hooks/use-toast";
-
-const menuItems = [
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    path: "/",
-    icon: <Home className="h-4 w-4" />,
-  },
-  {
-    id: "products",
-    label: "Produtos",
-    path: "/products",
-    icon: <Package className="h-4 w-4" />,
-  },
-  {
-    id: "categories",
-    label: "Categorias",
-    path: "/categories",
-    icon: <Tag className="h-4 w-4" />,
-  },
-  {
-    id: "suppliers",
-    label: "Fornecedores",
-    path: "/suppliers",
-    icon: <Truck className="h-4 w-4" />,
-  },
-  {
-    id: "customers",
-    label: "Clientes",
-    path: "/customers",
-    icon: <Users className="h-4 w-4" />,
-  },
-  {
-    id: "quotations",
-    label: "Cotações",
-    path: "/quotations",
-    icon: <FileText className="h-4 w-4" />,
-  },
-  {
-    id: "finances",
-    label: "Financeiro",
-    path: "/finances",
-    icon: <DollarSign className="h-4 w-4" />,
-  },
-  {
-    id: "settings",
-    label: "Configurações",
-    path: "/settings",
-    icon: <Settings className="h-4 w-4" />,
-  },
-];
+import { menuItems } from "@/utils/menuItems";
 
 export const Quotations: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);

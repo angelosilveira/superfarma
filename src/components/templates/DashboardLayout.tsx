@@ -1,7 +1,6 @@
-
-import React, { useState } from 'react';
-import { Sidebar } from '@/components/organisms/Sidebar';
-import { TopNavbar } from '@/components/organisms/TopNavbar';
+import React, { useState } from "react";
+import { Sidebar } from "@/components/organisms/Sidebar";
+import { TopNavbar } from "@/components/organisms/TopNavbar";
 
 interface MenuItem {
   id: string;
@@ -18,7 +17,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
-  menuItems
+  menuItems,
 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -33,14 +32,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         isCollapsed={sidebarCollapsed}
         onToggle={toggleSidebar}
       />
-      
+
       <div className="flex-1 flex flex-col overflow-hidden">
         <TopNavbar />
-        
+
         <main className="flex-1 overflow-hidden">
-          <div className="h-full overflow-auto p-6">
-            {children}
-          </div>
+          <div className="h-full overflow-auto p-6">{children}</div>
         </main>
       </div>
     </div>

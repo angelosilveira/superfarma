@@ -81,12 +81,12 @@ export const Wishlist: React.FC = () => {
   useEffect(() => {
     loadItems();
   }, []);
-
   const loadItems = async () => {
     try {
       setIsLoading(true);
       const data = await WishlistService.list();
-      setItems(data);
+      // Filter out received items
+      setItems(data.filter((item) => item.status !== WishlistStatus.RECEIVED));
     } catch (error) {
       toast({
         title: "Erro",
@@ -181,6 +181,28 @@ export const Wishlist: React.FC = () => {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar os itens",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setIsLoading(true);
+      const selectedIds = Array.from(selectedItems);
+      await Promise.all(selectedIds.map((id) => WishlistService.delete(id)));
+      toast({
+        title: "Sucesso",
+        description: "Itens removidos com sucesso",
+      });
+      loadItems();
+      setSelectedItems(new Set());
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível remover os itens",
         variant: "destructive",
       });
     } finally {
@@ -314,28 +336,62 @@ export const Wishlist: React.FC = () => {
             {" "}
             <div className="p-4 border-b bg-muted/50">
               <div className="flex items-center justify-between">
+                {" "}
                 <div className="flex items-center gap-4">
                   {selectedItems.size > 0 && (
-                    <Select
-                      onValueChange={(value) =>
-                        handleBulkStatusUpdate(value as WishlistStatus)
-                      }
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Alterar status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={WishlistStatus.PENDING}>
-                          Pendente
-                        </SelectItem>
-                        <SelectItem value={WishlistStatus.ORDERED}>
-                          Pedido Feito
-                        </SelectItem>
-                        <SelectItem value={WishlistStatus.RECEIVED}>
-                          Recebido
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <>
+                      <Select
+                        onValueChange={(value) =>
+                          handleBulkStatusUpdate(value as WishlistStatus)
+                        }
+                      >
+                        <SelectTrigger className="w-48">
+                          <SelectValue placeholder="Alterar status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={WishlistStatus.PENDING}>
+                            Pendente
+                          </SelectItem>
+                          <SelectItem value={WishlistStatus.ORDERED}>
+                            Pedido Feito
+                          </SelectItem>
+                          <SelectItem value={WishlistStatus.RECEIVED}>
+                            Recebido
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Excluir Selecionados
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Confirmar exclusão em massa
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Tem certeza que deseja excluir{" "}
+                              {selectedItems.size} item(s)? Esta ação não pode
+                              ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleBulkDelete}>
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -347,15 +403,6 @@ export const Wishlist: React.FC = () => {
                   >
                     <Copy className="h-4 w-4 mr-2" />
                     Copiar Lista
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={shareOnWhatsApp}
-                    disabled={items.length === 0}
-                  >
-                    <WhatsappIcon className="h-4 w-4 mr-2" />
-                    WhatsApp
                   </Button>
                 </div>
               </div>
