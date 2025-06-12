@@ -68,6 +68,8 @@ export const Wishlist: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
   // Form state
   const [newItem, setNewItem] = useState<CreateWishlistItem>({
     product_name: "",
@@ -257,7 +259,6 @@ export const Wishlist: React.FC = () => {
       setSelectedItems(new Set(items.map((item) => item.id)));
     }
   };
-
   const toggleSelectItem = (id: string) => {
     const newSelectedItems = new Set(selectedItems);
     if (newSelectedItems.has(id)) {
@@ -267,6 +268,12 @@ export const Wishlist: React.FC = () => {
     }
     setSelectedItems(newSelectedItems);
   };
+
+  const filteredItems = items.filter(
+    (item) =>
+      item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.observations?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <DashboardLayout menuItems={menuItems}>
@@ -343,7 +350,16 @@ export const Wishlist: React.FC = () => {
           <div className="border rounded-lg">
             <div className="p-4 border-b bg-muted/50">
               <div className="flex items-center justify-between">
+                {" "}
                 <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="Buscar produtos..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-64"
+                    />
+                  </div>
                   {selectedItems.size > 0 && (
                     <>
                       <Select
@@ -355,9 +371,6 @@ export const Wishlist: React.FC = () => {
                           <SelectValue placeholder="Alterar status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
-                            Em Falta
-                          </SelectItem>
                           <SelectItem value={WishlistStatus.PENDING}>
                             Pendente
                           </SelectItem>
@@ -366,6 +379,9 @@ export const Wishlist: React.FC = () => {
                           </SelectItem>
                           <SelectItem value={WishlistStatus.RECEIVED}>
                             Recebido
+                          </SelectItem>
+                          <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
+                            Em Falta
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -434,14 +450,17 @@ export const Wishlist: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.length === 0 ? (
+                {" "}
+                {filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center">
-                      Nenhum produto na lista de desejos
+                      {items.length === 0
+                        ? "Nenhum produto na lista de desejos"
+                        : "Nenhum produto encontrado para a busca"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((item) => (
+                  filteredItems.map((item) => (
                     <TableRow key={item.id}>
                       {" "}
                       <TableCell>
@@ -467,7 +486,7 @@ export const Wishlist: React.FC = () => {
                           <SelectContent>
                             <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
                               Em Falta
-                            </SelectItem>{" "}
+                            </SelectItem>
                             <SelectItem value={WishlistStatus.PENDING}>
                               Pendente
                             </SelectItem>

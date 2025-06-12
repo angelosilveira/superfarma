@@ -2,6 +2,7 @@ export enum WishlistStatus {
   PENDING = "pending",
   ORDERED = "ordered",
   RECEIVED = "received",
+  OUT_OF_STOCK = "out_of_stock",
 }
 
 export interface WishlistItem {
