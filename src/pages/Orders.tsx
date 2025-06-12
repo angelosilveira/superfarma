@@ -134,7 +134,7 @@ export const OrdersPage: React.FC = () => {
 
   const columns: Column[] = [
     {
-      key: "customer_name",
+      key: "customer",
       label: "Cliente",
       sortable: true,
     },

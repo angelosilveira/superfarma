@@ -12,6 +12,7 @@ import {
   Truck,
   UserCheck,
   Calculator,
+  ListChecks,
 } from "lucide-react";
 
 interface MenuItem {
@@ -24,23 +25,23 @@ interface MenuItem {
 
 export const menuItems: MenuItem[] = [
   {
-    id: "dashboard",
-    label: "Dashboard",
-    path: "/",
-    icon: <Home />,
+    id: "wishlist",
+    label: "Lista de Desejos",
+    path: "/wishlist",
+    icon: <ListChecks />,
   },
-  {
-    id: "products",
-    label: "Produtos",
-    path: "/products",
-    icon: <Package />,
-  },
-  {
-    id: "customers",
-    label: "Clientes",
-    path: "/customers",
-    icon: <Users />,
-  },
+  // {
+  //   id: "products",
+  //   label: "Produtos",
+  //   path: "/products",
+  //   icon: <Package />,
+  // },
+  // {
+  //   id: "customers",
+  //   label: "Clientes",
+  //   path: "/customers",
+  //   icon: <Users />,
+  // },
   {
     id: "categories",
     label: "Categorias",
@@ -77,24 +78,24 @@ export const menuItems: MenuItem[] = [
     path: "/orders",
     icon: <ShoppingCart />,
   },
-  {
-    id: "financial",
-    label: "Financeiro",
-    path: "/financial",
-    icon: <DollarSign />,
-    children: [
-      {
-        id: "accounts-payable",
-        label: "Contas a Pagar",
-        path: "/financial/accounts-payable",
-        icon: <CreditCard />,
-      },
-      {
-        id: "accounts-receivable",
-        label: "Contas a Receber",
-        path: "/financial/accounts-receivable",
-        icon: <TrendingUp />,
-      },
-    ],
-  },
+  // {
+  //   id: "financial",
+  //   label: "Financeiro",
+  //   path: "/financial",
+  //   icon: <DollarSign />,
+  //   children: [
+  //     {
+  //       id: "accounts-payable",
+  //       label: "Contas a Pagar",
+  //       path: "/financial/accounts-payable",
+  //       icon: <CreditCard />,
+  //     },
+  //     {
+  //       id: "accounts-receivable",
+  //       label: "Contas a Receber",
+  //       path: "/financial/accounts-receivable",
+  //       icon: <TrendingUp />,
+  //     },
+  //   ],
+  // },
 ];

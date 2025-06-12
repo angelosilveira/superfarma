@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Dashboard } from "@/pages/Dashboard";
+import { Wishlist } from "@/pages/Wishlist";
 import { Quotations } from "@/pages/Quotations";
 import { AccountsPayable } from "@/pages/AccountsPayable";
 import { AccountsReceivable } from "@/pages/AccountsReceivable";
@@ -24,6 +25,7 @@ export const AppRoutes: React.FC = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/quotations" element={<Quotations />} />
         <Route
           path="/financial/accounts-payable"
