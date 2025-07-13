@@ -62,6 +62,28 @@ import {
 } from "@/interfaces/wishlist.interface";
 import { WishlistService } from "@/services/wishlist.service";
 
+// Enum para categorias
+export enum WishlistCategory {
+  GENERICO = "GENERICO",
+  SIMILAR = "SIMILAR",
+  ETICO = "ETICO",
+  PERFUMARIA = "PERFUMARIA",
+  BELEZA = "BELEZA",
+  HIGIENE_PESSOAL = "HIGIENE_PESSOAL",
+  OUTROS = "OUTROS",
+}
+
+// Mapeamento dos labels das categorias
+const categoryLabels: Record<WishlistCategory, string> = {
+  [WishlistCategory.GENERICO]: "Genérico",
+  [WishlistCategory.SIMILAR]: "Similar",
+  [WishlistCategory.ETICO]: "Ético",
+  [WishlistCategory.PERFUMARIA]: "Perfumaria",
+  [WishlistCategory.BELEZA]: "Beleza",
+  [WishlistCategory.HIGIENE_PESSOAL]: "Higiene Pessoal",
+  [WishlistCategory.OUTROS]: "Outros",
+};
+
 export const Wishlist: React.FC = () => {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -69,18 +91,21 @@ export const Wishlist: React.FC = () => {
   const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   // Form state
   const [newItem, setNewItem] = useState<CreateWishlistItem>({
     product_name: "",
     observations: "",
-    quantity: 1,
+    quantity: "", // Removido o valor padrão
     status: WishlistStatus.PENDING,
+    category: WishlistCategory.GENERICO, // Adicionado campo categoria
   });
 
   useEffect(() => {
     loadItems();
   }, []);
+  
   const loadItems = async () => {
     try {
       setIsLoading(true);
@@ -110,8 +135,9 @@ export const Wishlist: React.FC = () => {
       setNewItem({
         product_name: "",
         observations: "",
-        quantity: 1,
+        quantity: "", // Resetado sem valor padrão
         status: WishlistStatus.PENDING,
+        category: WishlistCategory.GENERICO,
       });
     } catch (error) {
       toast({
@@ -217,7 +243,7 @@ export const Wishlist: React.FC = () => {
     const text = selectedWishlistItems
       .map(
         (item) =>
-          `${item.product_name} - Quantidade: ${item.quantity}${
+          `${item.product_name} - Categoria: ${categoryLabels[item.category]} - Quantidade: ${item.quantity}${
             item.observations ? `\nObs: ${item.observations}` : ""
           }\n`
       )
@@ -240,7 +266,7 @@ export const Wishlist: React.FC = () => {
     const text = selectedWishlistItems
       .map(
         (item) =>
-          `${item.product_name} - Quantidade: ${item.quantity}${
+          `${item.product_name} - Categoria: ${categoryLabels[item.category]} - Quantidade: ${item.quantity}${
             item.observations ? `\nObs: ${item.observations}` : ""
           }\n`
       )
@@ -259,6 +285,7 @@ export const Wishlist: React.FC = () => {
       setSelectedItems(new Set(items.map((item) => item.id)));
     }
   };
+  
   const toggleSelectItem = (id: string) => {
     const newSelectedItems = new Set(selectedItems);
     if (newSelectedItems.has(id)) {
@@ -269,11 +296,15 @@ export const Wishlist: React.FC = () => {
     setSelectedItems(newSelectedItems);
   };
 
-  const filteredItems = items.filter(
-    (item) =>
+  const filteredItems = items.filter((item) => {
+    const matchesSearch = 
       item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.observations?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      item.observations?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+    
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <DashboardLayout menuItems={menuItems}>
@@ -283,9 +314,8 @@ export const Wishlist: React.FC = () => {
         </div>
 
         <div className="space-y-4">
-          {" "}
           {/* Add new item form */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="space-y-2">
               <label htmlFor="product-name" className="text-sm font-medium">
                 Nome do produto
@@ -315,16 +345,41 @@ export const Wishlist: React.FC = () => {
                 onChange={(e) =>
                   setNewItem((prev) => ({
                     ...prev,
-                    quantity: parseInt(e.target.value) || 1,
+                    quantity: e.target.value,
                   }))
                 }
               />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="category" className="text-sm font-medium">
+                Categoria
+              </label>
+              <Select
+                value={newItem.category}
+                onValueChange={(value) =>
+                  setNewItem((prev) => ({
+                    ...prev,
+                    category: value as WishlistCategory,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(categoryLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2 flex items-end">
               <Button
                 className="w-full"
                 onClick={handleAdd}
-                disabled={!newItem.product_name}
+                disabled={!newItem.product_name || !newItem.quantity}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar
@@ -346,11 +401,11 @@ export const Wishlist: React.FC = () => {
                 }))
               }
             />
-          </div>{" "}
+          </div>
+          
           <div className="border rounded-lg">
             <div className="p-4 border-b bg-muted/50">
               <div className="flex items-center justify-between">
-                {" "}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Input
@@ -359,6 +414,22 @@ export const Wishlist: React.FC = () => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-64"
                     />
+                    <Select
+                      value={categoryFilter}
+                      onValueChange={setCategoryFilter}
+                    >
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder="Filtrar por categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as categorias</SelectItem>
+                        {Object.entries(categoryLabels).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   {selectedItems.size > 0 && (
                     <>
@@ -433,7 +504,6 @@ export const Wishlist: React.FC = () => {
               </div>
             </div>
             <Table>
-              {" "}
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
@@ -443,6 +513,7 @@ export const Wishlist: React.FC = () => {
                     />
                   </TableHead>
                   <TableHead>Produto</TableHead>
+                  <TableHead>Categoria</TableHead>
                   <TableHead>Quantidade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Observações</TableHead>
@@ -450,7 +521,6 @@ export const Wishlist: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {" "}
                 {filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center">
@@ -462,7 +532,6 @@ export const Wishlist: React.FC = () => {
                 ) : (
                   filteredItems.map((item) => (
                     <TableRow key={item.id}>
-                      {" "}
                       <TableCell>
                         <Checkbox
                           checked={selectedItems.has(item.id)}
@@ -470,6 +539,7 @@ export const Wishlist: React.FC = () => {
                         />
                       </TableCell>
                       <TableCell>{item.product_name}</TableCell>
+                      <TableCell>{categoryLabels[item.category]}</TableCell>
                       <TableCell>{item.quantity}</TableCell>
                       <TableCell>
                         <Select
@@ -601,11 +671,35 @@ export const Wishlist: React.FC = () => {
                   onChange={(e) =>
                     setEditingItem((prev) =>
                       prev
-                        ? { ...prev, quantity: parseInt(e.target.value) || 1 }
+                        ? { ...prev, quantity: e.target.value }
                         : null
                     )
                   }
                 />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="edit-category" className="text-sm font-medium">
+                  Categoria
+                </label>
+                <Select
+                  value={editingItem.category}
+                  onValueChange={(value) =>
+                    setEditingItem((prev) =>
+                      prev ? { ...prev, category: value as WishlistCategory } : null
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(categoryLabels).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label
@@ -668,6 +762,7 @@ export const Wishlist: React.FC = () => {
                     handleUpdate(editingItem.id, {
                       product_name: editingItem.product_name,
                       quantity: editingItem.quantity,
+                      category: editingItem.category,
                       observations: editingItem.observations,
                       status: editingItem.status,
                     })
