@@ -12,7 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -33,89 +32,72 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import {
-  Copy,
-  Edit2,
-  MoreHorizontal,
   Plus,
+  Edit2,
   Trash2,
-  MessageCircle as WhatsappIcon,
+  Search,
+  X,
+  Calendar,
+  User,
+  ShoppingCart,
 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  WishlistItem,
-  WishlistStatus,
-  CreateWishlistItem,
-  UpdateWishlistItem,
-} from "@/interfaces/wishlist.interface";
-import { WishlistService } from "@/services/wishlist.service";
-
-// Enum para categorias
-export enum WishlistCategory {
-  GENERICO = "GENERICO",
-  SIMILAR = "SIMILAR",
-  ETICO = "ETICO",
-  PERFUMARIA = "PERFUMARIA",
-  BELEZA = "BELEZA",
-  HIGIENE_PESSOAL = "HIGIENE_PESSOAL",
-  OUTROS = "OUTROS",
-}
-
-// Mapeamento dos labels das categorias
-const categoryLabels: Record<WishlistCategory, string> = {
-  [WishlistCategory.GENERICO]: "Genérico",
-  [WishlistCategory.SIMILAR]: "Similar",
-  [WishlistCategory.ETICO]: "Ético",
-  [WishlistCategory.PERFUMARIA]: "Perfumaria",
-  [WishlistCategory.BELEZA]: "Beleza",
-  [WishlistCategory.HIGIENE_PESSOAL]: "Higiene Pessoal",
-  [WishlistCategory.OUTROS]: "Outros",
-};
+  ClientWithoutRegister,
+  CreateClientWithoutRegister,
+  UpdateClientWithoutRegister,
+  PurchaseItemForm,
+  ClientsWithoutRegisterFilters,
+} from "@/interfaces/clients-without-register.interface";
+import { ClientsWithoutRegisterService } from "@/services/clients-without-register.service";
 
 export const ClientsWithoutRegister: React.FC = () => {
-  const [items, setItems] = useState<WishlistItem[]>([]);
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [clients, setClients] = useState<ClientWithoutRegister[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [editingItem, setEditingItem] = useState<WishlistItem | null>(null);
+  const [editingClient, setEditingClient] =
+    useState<ClientWithoutRegister | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [filters, setFilters] = useState<ClientsWithoutRegisterFilters>({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState("");
 
   // Form state
-  const [newItem, setNewItem] = useState<CreateWishlistItem>({
-    product_name: "",
+  const [formData, setFormData] = useState<{
+    client_name: string;
+    purchase_date: string;
+    observations: string;
+    purchase_items: PurchaseItemForm[];
+    total_amount: number;
+  }>({
+    client_name: "",
+    purchase_date: new Date().toISOString().split("T")[0],
     observations: "",
-    quantity: null, // Removido o valor padrão
-    status: WishlistStatus.PENDING,
-    category: WishlistCategory.GENERICO, // Adicionado campo categoria
+    purchase_items: [
+      { product_name: "", quantity: 1, unit_price: 0, total_price: 0 },
+    ],
+    total_amount: 0,
   });
 
   useEffect(() => {
-    loadItems();
-  }, []);
+    loadClients();
+  }, [filters]);
 
-  const loadItems = async () => {
+  useEffect(() => {
+    calculateTotal();
+  }, [formData.purchase_items]);
+
+  const loadClients = async () => {
     try {
       setIsLoading(true);
-      const data = await WishlistService.list();
-      // Filter out received items
-      setItems(data.filter((item) => item.status !== WishlistStatus.RECEIVED));
+      const response = await ClientsWithoutRegisterService.list(filters);
+      setClients(response.data);
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Não foi possível carregar os itens da lista de desejos",
+        description: "Não foi possível carregar os clientes",
         variant: "destructive",
       });
     } finally {
@@ -123,68 +105,139 @@ export const ClientsWithoutRegister: React.FC = () => {
     }
   };
 
-  const handleAdd = async () => {
-    try {
-      setIsLoading(true);
-      await WishlistService.create(newItem);
-      toast({
-        title: "Sucesso",
-        description: "Item adicionado à lista de desejos",
-      });
-      loadItems();
-      setNewItem({
-        product_name: "",
-        observations: "",
-        quantity: null, // Resetado sem valor padrão
-        status: WishlistStatus.PENDING,
-        category: WishlistCategory.GENERICO,
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível adicionar o item",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const calculateTotal = () => {
+    const total = formData.purchase_items.reduce(
+      (sum, item) => sum + item.total_price,
+      0
+    );
+    setFormData((prev) => ({ ...prev, total_amount: total }));
   };
 
-  const handleUpdate = async (id: string, updates: UpdateWishlistItem) => {
+  const handleAddItem = () => {
+    setFormData((prev) => ({
+      ...prev,
+      purchase_items: [
+        ...prev.purchase_items,
+        { product_name: "", quantity: 1, unit_price: 0, total_price: 0 },
+      ],
+    }));
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      purchase_items: prev.purchase_items.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleItemChange = (
+    index: number,
+    field: keyof PurchaseItemForm,
+    value: string | number
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      purchase_items: prev.purchase_items.map((item, i) => {
+        if (i === index) {
+          const updatedItem = { ...item, [field]: value };
+          if (field === "quantity" || field === "unit_price") {
+            updatedItem.total_price =
+              updatedItem.quantity * updatedItem.unit_price;
+          }
+          return updatedItem;
+        }
+        return item;
+      }),
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      client_name: "",
+      purchase_date: new Date().toISOString().split("T")[0],
+      observations: "",
+      purchase_items: [
+        { product_name: "", quantity: 1, unit_price: 0, total_price: 0 },
+      ],
+      total_amount: 0,
+    });
+    setEditingClient(null);
+  };
+
+  const handleSave = async () => {
     try {
       setIsLoading(true);
-      await WishlistService.update(id, updates);
-      toast({
-        title: "Sucesso",
-        description: "Item atualizado com sucesso",
-      });
-      loadItems();
-      setEditingItem(null);
+
+      if (editingClient) {
+        await ClientsWithoutRegisterService.update(editingClient.id, {
+          client_name: formData.client_name,
+          purchase_date: formData.purchase_date,
+          observations: formData.observations,
+          purchase_items: formData.purchase_items,
+          total_amount: formData.total_amount,
+        });
+        toast({
+          title: "Sucesso",
+          description: "Cliente atualizado com sucesso",
+        });
+      } else {
+        await ClientsWithoutRegisterService.create({
+          client_name: formData.client_name,
+          purchase_date: formData.purchase_date,
+          observations: formData.observations,
+          purchase_items: formData.purchase_items,
+          total_amount: formData.total_amount,
+        });
+        toast({
+          title: "Sucesso",
+          description: "Cliente adicionado com sucesso",
+        });
+      }
+
+      loadClients();
+      resetForm();
       setIsDialogOpen(false);
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o item",
+        description: "Não foi possível salvar o cliente",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEdit = (client: ClientWithoutRegister) => {
+    setEditingClient(client);
+    setFormData({
+      client_name: client.client_name,
+      purchase_date: client.purchase_date,
+      observations: client.observations || "",
+      purchase_items: client.purchase_items.map((item) => ({
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+      })),
+      total_amount: client.total_amount,
+    });
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
     try {
       setIsLoading(true);
-      await WishlistService.delete(id);
+      await ClientsWithoutRegisterService.delete(id);
       toast({
         title: "Sucesso",
-        description: "Item removido com sucesso",
+        description: "Cliente removido com sucesso",
       });
-      loadItems();
+      loadClients();
     } catch (error) {
       toast({
         title: "Erro",
-        description: "Não foi possível remover o item",
+        description: "Não foi possível remover o cliente",
         variant: "destructive",
       });
     } finally {
@@ -192,596 +245,452 @@ export const ClientsWithoutRegister: React.FC = () => {
     }
   };
 
-  const handleBulkStatusUpdate = async (status: WishlistStatus) => {
-    try {
-      setIsLoading(true);
-      await WishlistService.updateBulkStatus(Array.from(selectedItems), status);
-      toast({
-        title: "Sucesso",
-        description: "Status atualizado para os itens selecionados",
-      });
-      loadItems();
-      setSelectedItems(new Set());
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar os itens",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+  const applyFilters = () => {
+    const newFilters: ClientsWithoutRegisterFilters = {};
+
+    if (searchTerm) {
+      newFilters.client_name = searchTerm;
     }
+
+    if (dateFilter) {
+      newFilters.purchase_date = dateFilter;
+    }
+
+    setFilters(newFilters);
   };
 
-  const handleBulkDelete = async () => {
-    try {
-      setIsLoading(true);
-      const selectedIds = Array.from(selectedItems);
-      await Promise.all(selectedIds.map((id) => WishlistService.delete(id)));
-      toast({
-        title: "Sucesso",
-        description: "Itens removidos com sucesso",
-      });
-      loadItems();
-      setSelectedItems(new Set());
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível remover os itens",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+  const clearFilters = () => {
+    setSearchTerm("");
+    setDateFilter("");
+    setFilters({});
   };
 
-  const copyToClipboard = () => {
-    const selectedWishlistItems = items.filter((item) =>
-      selectedItems.has(item.id)
-    );
-
-    const text = selectedWishlistItems
-      .map(
+  const isFormValid = () => {
+    return (
+      formData.client_name.trim() &&
+      formData.purchase_items.length > 0 &&
+      formData.purchase_items.every(
         (item) =>
-          `${item.product_name} - Categoria: ${
-            categoryLabels[item.category]
-          } - Quantidade: ${item.quantity}${
-            item.observations ? `\nObs: ${item.observations}` : ""
-          }\n`
+          item.product_name.trim() && item.quantity > 0 && item.unit_price > 0
       )
-      .join("\n");
-
-    const message = `Lista de produtos:\n\n${text}\nPor favor, poderia me informar a disponibilidade e preços desses itens?`;
-
-    navigator.clipboard.writeText(message);
-    toast({
-      title: "Sucesso",
-      description: "Lista copiada para a área de transferência",
-    });
-  };
-
-  const shareOnWhatsApp = () => {
-    const selectedWishlistItems = items.filter((item) =>
-      selectedItems.has(item.id)
     );
-
-    const text = selectedWishlistItems
-      .map(
-        (item) =>
-          `${item.product_name} - Categoria: ${
-            categoryLabels[item.category]
-          } - Quantidade: ${item.quantity}${
-            item.observations ? `\nObs: ${item.observations}` : ""
-          }\n`
-      )
-      .join("\n");
-
-    const message = `Lista de produtos em falta:\n\n${text}\nPor favor, poderia me informar a disponibilidade e preços desses itens?`;
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
   };
-
-  const toggleSelectAll = () => {
-    if (selectedItems.size === items.length) {
-      setSelectedItems(new Set());
-    } else {
-      setSelectedItems(new Set(items.map((item) => item.id)));
-    }
-  };
-
-  const toggleSelectItem = (id: string) => {
-    const newSelectedItems = new Set(selectedItems);
-    if (newSelectedItems.has(id)) {
-      newSelectedItems.delete(id);
-    } else {
-      newSelectedItems.add(id);
-    }
-    setSelectedItems(newSelectedItems);
-  };
-
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.observations?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory =
-      categoryFilter === "all" || item.category === categoryFilter;
-
-    return matchesSearch && matchesCategory;
-  });
 
   return (
     <DashboardLayout menuItems={menuItems}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Lista de Desejos</h1>
-        </div>
-
-        <div className="space-y-4">
-          {/* Add new item form */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="space-y-2">
-              <label htmlFor="product-name" className="text-sm font-medium">
-                Nome do produto
-              </label>
-              <Input
-                id="product-name"
-                placeholder="Digite o nome do produto"
-                value={newItem.product_name}
-                onChange={(e) =>
-                  setNewItem((prev) => ({
-                    ...prev,
-                    product_name: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="quantity" className="text-sm font-medium">
-                Quantidade
-              </label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                placeholder="Digite a quantidade"
-                value={newItem.quantity}
-                onChange={(e) =>
-                  setNewItem((prev) => ({
-                    ...prev,
-                    quantity: Number(e.target.value),
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="category" className="text-sm font-medium">
-                Categoria
-              </label>
-              <Select
-                value={newItem?.category}
-                onValueChange={(value) =>
-                  setNewItem((prev) => ({
-                    ...prev,
-                    category: value as WishlistCategory,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(categoryLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 flex items-end">
-              <Button
-                className="w-full"
-                onClick={handleAdd}
-                disabled={!newItem.product_name || !newItem.quantity}
-              >
+          <h1 className="text-2xl font-semibold">Clientes sem Cadastro</h1>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
                 <Plus className="h-4 w-4 mr-2" />
-                Adicionar
+                Novo Cliente
               </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="observations" className="text-sm font-medium">
-              Observações
-            </label>
-            <Textarea
-              id="observations"
-              placeholder="Digite as observações (opcional)"
-              value={newItem.observations || ""}
-              onChange={(e) =>
-                setNewItem((prev) => ({
-                  ...prev,
-                  observations: e.target.value,
-                }))
-              }
-            />
-          </div>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingClient ? "Editar Cliente" : "Novo Cliente"}
+                </DialogTitle>
+              </DialogHeader>
 
-          <div className="border rounded-lg">
-            <div className="p-4 border-b bg-muted/50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Nome do Cliente
+                    </label>
                     <Input
-                      placeholder="Buscar produtos..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-64"
+                      placeholder="Digite o nome do cliente"
+                      value={formData.client_name}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          client_name: e.target.value,
+                        }))
+                      }
                     />
-                    <Select
-                      value={categoryFilter}
-                      onValueChange={setCategoryFilter}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Filtrar por categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as categorias</SelectItem>
-                        {Object.entries(categoryLabels).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
-                  {selectedItems.size > 0 && (
-                    <>
-                      <Select
-                        onValueChange={(value) =>
-                          handleBulkStatusUpdate(value as WishlistStatus)
-                        }
-                      >
-                        <SelectTrigger className="w-48">
-                          <SelectValue placeholder="Alterar status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={WishlistStatus.PENDING}>
-                            Pendente
-                          </SelectItem>
-                          <SelectItem value={WishlistStatus.ORDERED}>
-                            Pedido Feito
-                          </SelectItem>
-                          <SelectItem value={WishlistStatus.RECEIVED}>
-                            Recebido
-                          </SelectItem>
-                          <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
-                            Em Falta
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            className="gap-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Excluir Selecionados
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Confirmar exclusão em massa
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Tem certeza que deseja excluir{" "}
-                              {selectedItems.size} item(s)? Esta ação não pode
-                              ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleBulkDelete}>
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </>
-                  )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Data da Compra
+                    </label>
+                    <Input
+                      type="date"
+                      value={formData.purchase_date}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          purchase_date: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Produtos</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddItem}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Produto
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {formData.purchase_items.map((item, index) => (
+                      <Card key={index}>
+                        <CardContent className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                            <div className="md:col-span-2">
+                              <label className="text-sm font-medium">
+                                Produto
+                              </label>
+                              <Input
+                                placeholder="Nome do produto"
+                                value={item.product_name}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "product_name",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium">Qtd</label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "quantity",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium">
+                                Preço Unit.
+                              </label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.unit_price}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    index,
+                                    "unit_price",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1">
+                                <label className="text-sm font-medium">
+                                  Total
+                                </label>
+                                <div className="text-sm font-medium px-3 py-2 bg-muted rounded">
+                                  R$ {item.total_price.toFixed(2)}
+                                </div>
+                              </div>
+                              {formData.purchase_items.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => handleRemoveItem(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Observações</label>
+                  <Textarea
+                    placeholder="Observações sobre a compra (opcional)"
+                    value={formData.observations}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        observations: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-muted rounded">
+                  <span className="text-lg font-medium">Total da Compra:</span>
+                  <span className="text-xl font-bold text-primary">
+                    R$ {formData.total_amount.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-end gap-4">
                   <Button
                     variant="outline"
-                    size="sm"
-                    onClick={copyToClipboard}
-                    disabled={items.length === 0}
+                    onClick={() => {
+                      resetForm();
+                      setIsDialogOpen(false);
+                    }}
                   >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copiar Lista
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={!isFormValid() || isLoading}
+                  >
+                    {isLoading ? "Salvando..." : "Salvar"}
                   </Button>
                 </div>
               </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Filtros */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              Filtros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nome do Cliente</label>
+                <Input
+                  placeholder="Buscar por nome..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Data da Compra</label>
+                <Input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button onClick={applyFilters}>
+                  <Search className="h-4 w-4 mr-2" />
+                  Buscar
+                </Button>
+                <Button variant="outline" onClick={clearFilters}>
+                  Limpar
+                </Button>
+              </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabela */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Lista de Clientes</CardTitle>
+          </CardHeader>
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedItems.size === items.length}
-                      onClick={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Data da Compra</TableHead>
+                  <TableHead>Produtos</TableHead>
+                  <TableHead>Total</TableHead>
                   <TableHead>Observações</TableHead>
-                  <TableHead className="w-12">Ações</TableHead>
+                  <TableHead className="w-24">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.length === 0 ? (
+                {clients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
-                      {items.length === 0
-                        ? "Nenhum produto na lista de desejos"
-                        : "Nenhum produto encontrado para a busca"}
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      Nenhum cliente encontrado
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredItems.map((item) => (
-                    <TableRow key={item.id}>
+                  clients.map((client) => (
+                    <TableRow key={client.id}>
                       <TableCell>
-                        <Checkbox
-                          checked={selectedItems.has(item.id)}
-                          onClick={() => toggleSelectItem(item.id)}
-                        />
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          {client.client_name}
+                        </div>
                       </TableCell>
-                      <TableCell>{item.product_name}</TableCell>
-                      <TableCell>{categoryLabels[item.category]}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
                       <TableCell>
-                        <Select
-                          value={item.status}
-                          onValueChange={(value) =>
-                            handleUpdate(item.id, {
-                              status: value as WishlistStatus,
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
-                              Em Falta
-                            </SelectItem>
-                            <SelectItem value={WishlistStatus.PENDING}>
-                              Pendente
-                            </SelectItem>
-                            <SelectItem value={WishlistStatus.ORDERED}>
-                              Pedido Feito
-                            </SelectItem>
-                            <SelectItem value={WishlistStatus.RECEIVED}>
-                              Recebido
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          {format(
+                            new Date(client.purchase_date),
+                            "dd/MM/yyyy",
+                            { locale: ptBR }
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell>{item.observations || "-"}</TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setEditingItem(item);
-                                setIsDialogOpen(true);
-                              }}
-                            >
-                              <Edit2 className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  onSelect={(e) => e.preventDefault()}
-                                  className="text-destructive"
+                        <div className="flex items-center gap-2">
+                          <ShoppingCart className="h-4 w-4" />
+                          <Badge variant="secondary">
+                            {client.purchase_items.length} item(s)
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium text-primary">
+                          R$ {client.total_amount.toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {client.observations ? (
+                          <div
+                            className="max-w-xs truncate"
+                            title={client.observations}
+                          >
+                            {client.observations}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(client)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Confirmar exclusão
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir a conta do
+                                  cliente "{client.client_name}"? Esta ação não
+                                  pode ser desfeita e todos os dados
+                                  relacionados serão removidos.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(client.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                  <Trash2 className="h-4 w-4 mr-2" />
                                   Excluir
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Confirmar exclusão
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Tem certeza que deseja excluir este item?
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>
-                                    Cancelar
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(item.id)}
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
-          </div>
-        </div>
-      </div>
+          </CardContent>
+        </Card>
 
-      {/* Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Item</DialogTitle>
-          </DialogHeader>
-          {editingItem && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label
-                  htmlFor="edit-product-name"
-                  className="text-sm font-medium"
-                >
-                  Nome do produto
-                </label>
-                <Input
-                  id="edit-product-name"
-                  placeholder="Digite o nome do produto"
-                  value={editingItem.product_name}
-                  onChange={(e) =>
-                    setEditingItem((prev) =>
-                      prev ? { ...prev, product_name: e.target.value } : null
-                    )
-                  }
-                />
+        {/* Detalhes expandidos */}
+        {clients.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Detalhes dos Produtos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {clients.map((client) => (
+                  <div key={client.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="font-semibold text-lg">
+                          {client.client_name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {format(
+                            new Date(client.purchase_date),
+                            "dd/MM/yyyy",
+                            { locale: ptBR }
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total</p>
+                        <p className="text-lg font-semibold text-primary">
+                          R$ {client.total_amount.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                      {client.purchase_items.map((item, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 bg-muted/50 rounded"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium">{item.product_name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {item.quantity}x R$ {item.unit_price.toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">
+                              R$ {item.total_price.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {client.observations && (
+                      <div className="mt-4 p-3 bg-blue-50 rounded">
+                        <p className="text-sm font-medium text-blue-800">
+                          Observações:
+                        </p>
+                        <p className="text-sm text-blue-700 mt-1">
+                          {client.observations}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className="space-y-2">
-                <label htmlFor="edit-quantity" className="text-sm font-medium">
-                  Quantidade
-                </label>
-                <Input
-                  id="edit-quantity"
-                  type="number"
-                  min="1"
-                  placeholder="Digite a quantidade"
-                  value={editingItem.quantity}
-                  onChange={(e) =>
-                    setEditingItem((prev) =>
-                      prev
-                        ? { ...prev, quantity: Number(e.target.value) }
-                        : null
-                    )
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="edit-category" className="text-sm font-medium">
-                  Categoria
-                </label>
-                <Select
-                  value={editingItem.category}
-                  onValueChange={(value) =>
-                    setEditingItem((prev) =>
-                      prev
-                        ? { ...prev, category: value as WishlistCategory }
-                        : null
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(categoryLabels).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label
-                  htmlFor="edit-observations"
-                  className="text-sm font-medium"
-                >
-                  Observações
-                </label>
-                <Textarea
-                  id="edit-observations"
-                  placeholder="Digite as observações (opcional)"
-                  value={editingItem.observations || ""}
-                  onChange={(e) =>
-                    setEditingItem((prev) =>
-                      prev ? { ...prev, observations: e.target.value } : null
-                    )
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="edit-status" className="text-sm font-medium">
-                  Status
-                </label>
-                <Select
-                  value={editingItem.status}
-                  onValueChange={(value) =>
-                    setEditingItem((prev) =>
-                      prev ? { ...prev, status: value as WishlistStatus } : null
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={WishlistStatus.PENDING}>
-                      Pendente
-                    </SelectItem>
-                    <SelectItem value={WishlistStatus.ORDERED}>
-                      Pedido Feito
-                    </SelectItem>
-                    <SelectItem value={WishlistStatus.RECEIVED}>
-                      Recebido
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEditingItem(null);
-                    setIsDialogOpen(false);
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={() =>
-                    handleUpdate(editingItem.id, {
-                      product_name: editingItem.product_name,
-                      quantity: editingItem.quantity,
-                      category: editingItem.category,
-                      observations: editingItem.observations,
-                      status: editingItem.status,
-                    })
-                  }
-                >
-                  Salvar
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </DashboardLayout>
   );
 };
