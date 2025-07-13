@@ -97,7 +97,7 @@ export const Wishlist: React.FC = () => {
   const [newItem, setNewItem] = useState<CreateWishlistItem>({
     product_name: "",
     observations: "",
-    quantity: "", // Removido o valor padrão
+    quantity: null, // Removido o valor padrão
     status: WishlistStatus.PENDING,
     category: WishlistCategory.GENERICO, // Adicionado campo categoria
   });
@@ -105,7 +105,7 @@ export const Wishlist: React.FC = () => {
   useEffect(() => {
     loadItems();
   }, []);
-  
+
   const loadItems = async () => {
     try {
       setIsLoading(true);
@@ -135,7 +135,7 @@ export const Wishlist: React.FC = () => {
       setNewItem({
         product_name: "",
         observations: "",
-        quantity: "", // Resetado sem valor padrão
+        quantity: null, // Resetado sem valor padrão
         status: WishlistStatus.PENDING,
         category: WishlistCategory.GENERICO,
       });
@@ -243,7 +243,9 @@ export const Wishlist: React.FC = () => {
     const text = selectedWishlistItems
       .map(
         (item) =>
-          `${item.product_name} - Categoria: ${categoryLabels[item.category]} - Quantidade: ${item.quantity}${
+          `${item.product_name} - Categoria: ${
+            categoryLabels[item.category]
+          } - Quantidade: ${item.quantity}${
             item.observations ? `\nObs: ${item.observations}` : ""
           }\n`
       )
@@ -266,7 +268,9 @@ export const Wishlist: React.FC = () => {
     const text = selectedWishlistItems
       .map(
         (item) =>
-          `${item.product_name} - Categoria: ${categoryLabels[item.category]} - Quantidade: ${item.quantity}${
+          `${item.product_name} - Categoria: ${
+            categoryLabels[item.category]
+          } - Quantidade: ${item.quantity}${
             item.observations ? `\nObs: ${item.observations}` : ""
           }\n`
       )
@@ -285,7 +289,7 @@ export const Wishlist: React.FC = () => {
       setSelectedItems(new Set(items.map((item) => item.id)));
     }
   };
-  
+
   const toggleSelectItem = (id: string) => {
     const newSelectedItems = new Set(selectedItems);
     if (newSelectedItems.has(id)) {
@@ -297,12 +301,13 @@ export const Wishlist: React.FC = () => {
   };
 
   const filteredItems = items.filter((item) => {
-    const matchesSearch = 
+    const matchesSearch =
       item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.observations?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    
+
+    const matchesCategory =
+      categoryFilter === "all" || item.category === categoryFilter;
+
     return matchesSearch && matchesCategory;
   });
 
@@ -345,7 +350,7 @@ export const Wishlist: React.FC = () => {
                 onChange={(e) =>
                   setNewItem((prev) => ({
                     ...prev,
-                    quantity: e.target.value,
+                    quantity: Number(e.target.value),
                   }))
                 }
               />
@@ -355,7 +360,7 @@ export const Wishlist: React.FC = () => {
                 Categoria
               </label>
               <Select
-                value={newItem.category}
+                value={newItem?.category}
                 onValueChange={(value) =>
                   setNewItem((prev) => ({
                     ...prev,
@@ -402,7 +407,7 @@ export const Wishlist: React.FC = () => {
               }
             />
           </div>
-          
+
           <div className="border rounded-lg">
             <div className="p-4 border-b bg-muted/50">
               <div className="flex items-center justify-between">
@@ -671,7 +676,7 @@ export const Wishlist: React.FC = () => {
                   onChange={(e) =>
                     setEditingItem((prev) =>
                       prev
-                        ? { ...prev, quantity: e.target.value }
+                        ? { ...prev, quantity: Number(e.target.value) }
                         : null
                     )
                   }
@@ -685,7 +690,9 @@ export const Wishlist: React.FC = () => {
                   value={editingItem.category}
                   onValueChange={(value) =>
                     setEditingItem((prev) =>
-                      prev ? { ...prev, category: value as WishlistCategory } : null
+                      prev
+                        ? { ...prev, category: value as WishlistCategory }
+                        : null
                     )
                   }
                 >

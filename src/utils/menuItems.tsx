@@ -78,24 +78,24 @@ export const menuItems: MenuItem[] = [
     path: "/orders",
     icon: <ShoppingCart />,
   },
-  // {
-  //   id: "financial",
-  //   label: "Financeiro",
-  //   path: "/financial",
-  //   icon: <DollarSign />,
-  //   children: [
-  //     {
-  //       id: "accounts-payable",
-  //       label: "Contas a Pagar",
-  //       path: "/financial/accounts-payable",
-  //       icon: <CreditCard />,
-  //     },
-  //     {
-  //       id: "accounts-receivable",
-  //       label: "Contas a Receber",
-  //       path: "/financial/accounts-receivable",
-  //       icon: <TrendingUp />,
-  //     },
-  //   ],
-  // },
+  {
+    id: "financial",
+    label: "Financeiro",
+    path: "/financial",
+    icon: <DollarSign />,
+    children: [
+      // {
+      //   id: "accounts-payable",
+      //   label: "Contas a Pagar",
+      //   path: "/financial/accounts-payable",
+      //   icon: <CreditCard />,
+      // },
+      {
+        id: "accounts-receivable",
+        label: "Clientes sem cadastro",
+        path: "/financial/accounts-receivable",
+        icon: <TrendingUp />,
+      },
+    ],
+  },
 ];

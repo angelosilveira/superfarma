@@ -10,8 +10,9 @@ export interface WishlistItem {
   product_name: string;
   observations?: string;
   customer_name?: string;
-  quantity: number;
+  quantity: number | null;
   status: WishlistStatus;
+  category: string;
   created_at: string;
   updated_at: string;
 }
@@ -20,14 +21,16 @@ export interface CreateWishlistItem {
   product_name: string;
   observations?: string;
   customer_name?: string;
-  quantity: number;
+  quantity: number | null;
   status?: WishlistStatus;
+  category: string;
 }
 
 export interface UpdateWishlistItem {
   product_name?: string;
   observations?: string;
   customer_name?: string;
-  quantity?: number;
+  quantity?: number | null;
   status?: WishlistStatus;
+  category?: string;
 }
