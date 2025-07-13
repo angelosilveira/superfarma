@@ -19,6 +19,7 @@ import { CashRegisterForm } from "@/pages/CashRegisterForm";
 import NotFound from "@/pages/NotFound";
 import { OrdersPage } from "@/pages/Orders";
 import { OrderForm } from "@/pages/OrderForm";
+import { ClientsWithoutRegister } from "@/pages/ClientsWithoutRegister";
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -66,6 +67,12 @@ export const AppRoutes: React.FC = () => {
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/orders/new" element={<OrderForm />} />
         <Route path="/orders/edit/:id" element={<OrderForm />} />
+
+        {/* Financial */}
+        <Route
+          path="financial/clients-without-register"
+          element={<ClientsWithoutRegister />}
+        />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

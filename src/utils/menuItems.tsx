@@ -91,9 +91,9 @@ export const menuItems: MenuItem[] = [
       //   icon: <CreditCard />,
       // },
       {
-        id: "accounts-receivable",
+        id: "clients-without-register",
         label: "Clientes sem cadastro",
-        path: "/financial/accounts-receivable",
+        path: "/financial/clients-without-register",
         icon: <TrendingUp />,
       },
     ],
