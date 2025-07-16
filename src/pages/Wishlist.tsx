@@ -39,6 +39,10 @@ import {
   Plus,
   Trash2,
   MessageCircle as WhatsappIcon,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FileJson,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -61,6 +65,7 @@ import {
   UpdateWishlistItem,
 } from "@/interfaces/wishlist.interface";
 import { WishlistService } from "@/services/wishlist.service";
+import * as XLSX from "xlsx";
 
 // Enum para categorias
 export enum WishlistCategory {
@@ -84,6 +89,14 @@ const categoryLabels: Record<WishlistCategory, string> = {
   [WishlistCategory.OUTROS]: "Outros",
 };
 
+// Mapeamento dos labels de status
+const statusLabels: Record<WishlistStatus, string> = {
+  [WishlistStatus.PENDING]: "Pendente",
+  [WishlistStatus.ORDERED]: "Pedido Feito",
+  [WishlistStatus.RECEIVED]: "Recebido",
+  [WishlistStatus.OUT_OF_STOCK]: "Em Falta",
+};
+
 export const Wishlist: React.FC = () => {
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -97,9 +110,9 @@ export const Wishlist: React.FC = () => {
   const [newItem, setNewItem] = useState<CreateWishlistItem>({
     product_name: "",
     observations: "",
-    quantity: null, // Removido o valor padrão
+    quantity: null,
     status: WishlistStatus.PENDING,
-    category: WishlistCategory.GENERICO, // Adicionado campo categoria
+    category: WishlistCategory.GENERICO,
   });
 
   useEffect(() => {
@@ -153,7 +166,12 @@ export const Wishlist: React.FC = () => {
   const handleUpdate = async (id: string, updates: UpdateWishlistItem) => {
     try {
       setIsLoading(true);
-      await WishlistService.update(id, updates);
+      // Adicionar updated_at ao fazer update
+      const updatesWithDate = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+      await WishlistService.update(id, updatesWithDate);
       toast({
         title: "Sucesso",
         description: "Item atualizado com sucesso",
@@ -283,10 +301,10 @@ export const Wishlist: React.FC = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedItems.size === items.length) {
+    if (selectedItems.size === filteredItems.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(items.map((item) => item.id)));
+      setSelectedItems(new Set(filteredItems.map((item) => item.id)));
     }
   };
 
@@ -298,6 +316,122 @@ export const Wishlist: React.FC = () => {
       newSelectedItems.add(id);
     }
     setSelectedItems(newSelectedItems);
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Funções de exportação
+  const exportToExcel = () => {
+    const dataToExport =
+      selectedItems.size > 0
+        ? items.filter((item) => selectedItems.has(item.id))
+        : filteredItems;
+
+    const exportData = dataToExport.map((item) => ({
+      Produto: item.product_name,
+      Categoria: categoryLabels[item.category],
+      Quantidade: item.quantity,
+      Status: statusLabels[item.status],
+      Observações: item.observations || "",
+      "Data de Criação": formatDate(item.created_at),
+      "Data de Atualização": formatDate(item.updated_at),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Lista de Desejos");
+    XLSX.writeFile(
+      wb,
+      `lista-desejos-${new Date().toISOString().split("T")[0]}.xlsx`
+    );
+
+    toast({
+      title: "Sucesso",
+      description: "Arquivo Excel exportado com sucesso",
+    });
+  };
+
+  const exportToCSV = () => {
+    const dataToExport =
+      selectedItems.size > 0
+        ? items.filter((item) => selectedItems.has(item.id))
+        : filteredItems;
+
+    const exportData = dataToExport.map((item) => ({
+      Produto: item.product_name,
+      Categoria: categoryLabels[item.category],
+      Quantidade: item.quantity,
+      Status: statusLabels[item.status],
+      Observações: item.observations || "",
+      "Data de Criação": formatDate(item.created_at),
+      "Data de Atualização": formatDate(item.updated_at),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `lista-desejos-${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Sucesso",
+      description: "Arquivo CSV exportado com sucesso",
+    });
+  };
+
+  const exportToJSON = () => {
+    const dataToExport =
+      selectedItems.size > 0
+        ? items.filter((item) => selectedItems.has(item.id))
+        : filteredItems;
+
+    const exportData = dataToExport.map((item) => ({
+      id: item.id,
+      product_name: item.product_name,
+      category: item.category,
+      category_label: categoryLabels[item.category],
+      quantity: item.quantity,
+      status: item.status,
+      status_label: statusLabels[item.status],
+      observations: item.observations,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    }));
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataUri =
+      "data:application/json;charset=utf-8," + encodeURIComponent(dataStr);
+    const exportFileDefaultName = `lista-desejos-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
+    const linkElement = document.createElement("a");
+    linkElement.setAttribute("href", dataUri);
+    linkElement.setAttribute("download", exportFileDefaultName);
+    linkElement.click();
+
+    toast({
+      title: "Sucesso",
+      description: "Arquivo JSON exportado com sucesso",
+    });
   };
 
   const filteredItems = items.filter((item) => {
@@ -346,11 +480,11 @@ export const Wishlist: React.FC = () => {
                 type="number"
                 min="1"
                 placeholder="Digite a quantidade"
-                value={newItem.quantity}
+                value={newItem.quantity || ""}
                 onChange={(e) =>
                   setNewItem((prev) => ({
                     ...prev,
-                    quantity: Number(e.target.value),
+                    quantity: Number(e.target.value) || null,
                   }))
                 }
               />
@@ -500,11 +634,34 @@ export const Wishlist: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={copyToClipboard}
-                    disabled={items.length === 0}
+                    disabled={selectedItems.size === 0}
                   >
                     <Copy className="h-4 w-4 mr-2" />
                     Copiar Lista
                   </Button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-2" />
+                        Exportar
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={exportToExcel}>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Exportar como Excel
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToCSV}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Exportar como CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToJSON}>
+                        <FileJson className="h-4 w-4 mr-2" />
+                        Exportar como JSON
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -513,8 +670,11 @@ export const Wishlist: React.FC = () => {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedItems.size === items.length}
-                      onClick={toggleSelectAll}
+                      checked={
+                        selectedItems.size === filteredItems.length &&
+                        filteredItems.length > 0
+                      }
+                      onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
                   <TableHead>Produto</TableHead>
@@ -522,13 +682,15 @@ export const Wishlist: React.FC = () => {
                   <TableHead>Quantidade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Observações</TableHead>
+                  <TableHead>Data Criação</TableHead>
+                  <TableHead>Data Atualização</TableHead>
                   <TableHead className="w-12">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">
+                    <TableCell colSpan={9} className="h-24 text-center">
                       {items.length === 0
                         ? "Nenhum produto na lista de desejos"
                         : "Nenhum produto encontrado para a busca"}
@@ -540,7 +702,7 @@ export const Wishlist: React.FC = () => {
                       <TableCell>
                         <Checkbox
                           checked={selectedItems.has(item.id)}
-                          onClick={() => toggleSelectItem(item.id)}
+                          onCheckedChange={() => toggleSelectItem(item.id)}
                         />
                       </TableCell>
                       <TableCell>{item.product_name}</TableCell>
@@ -575,6 +737,12 @@ export const Wishlist: React.FC = () => {
                         </Select>
                       </TableCell>
                       <TableCell>{item.observations || "-"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(item.created_at)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(item.updated_at)}
+                      </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -750,6 +918,9 @@ export const Wishlist: React.FC = () => {
                     </SelectItem>
                     <SelectItem value={WishlistStatus.RECEIVED}>
                       Recebido
+                    </SelectItem>
+                    <SelectItem value={WishlistStatus.OUT_OF_STOCK}>
+                      Em Falta
                     </SelectItem>
                   </SelectContent>
                 </Select>
