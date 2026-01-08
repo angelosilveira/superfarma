@@ -1,0 +1,72 @@
+## 🔍 **Perguntas sobre a Entidade e Contexto**
+
+### **1. Definição da Entidade**
+- Qual entidade você quer gerenciar no CRUD? 
+  R: Categorias
+- Essa entidade tem relacionamentos com outras entidades? Se sim, quais?
+  R: Não
+
+### **2. Estrutura de Dados**
+- Quais campos essa entidade deve ter?
+  R: id, nome, descricao, created_at, updated_at
+- Para cada campo, me informe:
+  - Tipo de dados (string, number, boolean, date, array, etc.)
+  R: string, string, string, date, date
+  - Se é obrigatório ou opcional
+  R: opcional, obrigatório, obrigatório, opcional, opcional
+  - Se tem valor padrão
+  R: created_at, updated_at devem ser gerados automaticamente
+
+### **3. Validações e Regras de Negócio**
+- Existem validações específicas para algum campo? (ex: email válido, CPF, tamanho mínimo/máximo)
+  R: Não
+- Há campos únicos que não podem ser duplicados?
+  R: Não
+- Existem regras de negócio para criação? (ex: só administradores podem criar)
+  R: Não
+- Existem regras para edição? (ex: não pode editar após certo status)
+  R: Não
+- Existem regras para exclusão? (ex: só pode excluir se não tiver dependências)
+  R: Não
+
+### **4. Interface do Usuário**
+- Como deve ser a listagem? (tabela, cards, lista simples?)
+  R: Tabela
+- Precisa de paginação? Se sim, quantos itens por página?
+  R: Não
+- Precisa de filtros? Quais campos podem ser filtrados?
+  R: Não
+- Precisa de busca? Por quais campos?
+  R: Sim, por nome e descricao e data de criacao
+- Precisa de ordenação? Por quais campos?
+  R: data de criacao
+
+### **5. Fluxo de Operações**
+- A criação/edição deve ser em modal, página separada ou inline?
+  R: Modal
+- Precisa de confirmação antes de excluir?
+  R: Sim
+- Deve mostrar mensagens de sucesso/erro?
+  R: Sim
+- Precisa de loading states durante as operações?
+  R: Sim, nos botoes de criacao, edicao e exclusao
+
+### **6. Integração e Performance**
+- Você já tem uma API REST definida ou preciso considerar os endpoints também?
+  R: Não
+- Precisa de cache dos dados? (ex: React Query, SWR)
+  R: Não
+- Os dados mudam frequentemente e precisam de sincronização em tempo real?
+  R: Sim
+- Precisa funcionar offline ou com conectividade intermitente?
+  R: Não
+
+### **7. Ambiente e Dependências**
+- Você já tem algum design system ou biblioteca de componentes definida? (Material-UI, Ant Design, Chakra, etc.)
+  R: Não
+- Prefere alguma biblioteca específica para formulários? (React Hook Form, Formik)
+  R: React Hook Form
+- Tem preferência para testes? (Jest + Testing Library, Vitest)
+  R: Jest + Testing Library
+- Precisa considerar alguma biblioteca de estado global? (Zustand, Redux Toolkit, Context API)
+  R: Zustand

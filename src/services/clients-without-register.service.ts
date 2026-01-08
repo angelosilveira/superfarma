@@ -16,7 +16,7 @@ export class ClientsWithoutRegisterService {
   static async list(
     filters: ClientsWithoutRegisterFilters = {},
     page: number = 1,
-    limit: number = 10
+    limit: number = 100
   ): Promise<ClientsWithoutRegisterListResponse> {
     let query = supabase
       .from(this.tableName)
